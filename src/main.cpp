@@ -2,6 +2,9 @@
 #include <cosmictiger/hpx.hpp>
 
 
+#include <cosmictiger/particle.hpp>
+
+
 int hpx_main(int argc, char *argv[]) {
 	return hpx::finalize();
 }
@@ -13,5 +16,4 @@ int main(int argc, char *argv[]) {
 
 	hpx::init(argc, argv, cfg);
 }
-
 #endif
