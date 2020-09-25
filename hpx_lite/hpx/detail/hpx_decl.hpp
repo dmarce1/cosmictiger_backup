@@ -18,9 +18,8 @@ std::vector<hpx::id_type> find_all_localities();
 int finalize();
 hpx::id_type find_here();
 
-namespace naming {
-int get_locality_id_from_gid(const gid_type&);
-}
+
+hpx::future<hpx::id_type> get_colocation_id(const id_type& gid);
 
 namespace detail {
 

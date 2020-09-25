@@ -23,4 +23,8 @@ public:
 		rc.i = i - other.i;
 		return rc;
 	}
+	template<class A>
+	void serialize(A&& arc, unsigned) {
+		arc & i;
+	}
 };

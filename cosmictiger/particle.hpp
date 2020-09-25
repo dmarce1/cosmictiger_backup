@@ -19,6 +19,22 @@ struct particle {
 		std::uint64_t out :1;
 		std::uint64_t group :56;
 	};
+	template<class A>
+	void serialize(A&& arc, unsigned) {
+		arc & x;
+		arc & v;
+		std::uint8_t tmp1;
+		std::uint64_t tmp2;
+		tmp1 = rung;
+		arc & tmp1;
+		rung = tmp1;
+		tmp1 = out;
+		arc & tmp1;
+		out = tmp1;
+		tmp2 = group;
+		arc & tmp2;
+		group = tmp2;
+	}
 };
 
 #endif /* COSMICTIGER_PARTICLE_HPP_ */

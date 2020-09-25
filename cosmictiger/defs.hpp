@@ -1,6 +1,8 @@
 #pragma once
 
 #define NDIM 3
+#define NCHILD 2
+#define NSIBLING 6
 
 
 #define DEFAULT_CLASS_MEMBERS(c) 		\

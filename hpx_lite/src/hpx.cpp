@@ -334,12 +334,9 @@ static int handle_outgoing_message(std::shared_ptr<message_type> message) {
 
 }
 
-namespace naming {
-
-int get_locality_id_from_gid(const gid_type& gid) {
-	return gid.get_rank();
-}
-
+hpx::future<hpx::id_type> get_colocation_id(const id_type& gid) {
+	static const auto localities = hpx::find_all_localities();
+	return hpx::make_ready_future(localities[gid.get_rank()]);
 }
 
 bool id_type::operator==(const id_type& other) const {

@@ -25,11 +25,26 @@ enable_language(CUDA)
 set(CMAKE_CXX_FLAGS "-O3 -DNDEBUG -ffast-math -march=native")
 
 set(cosmictiger_source_files
+	src/bucket.cpp
+	src/hpx.cpp
 	src/main.cpp
+	src/options.cpp
+	src/range.cpp
+	src/tree.cpp
 )
 
 
 set(cosmictiger_header_files
+	cosmictiger/bucket.hpp
+	cosmictiger/cuda_export.hpp
+	cosmictiger/defs.hpp
+	cosmictiger/hpx.hpp
+	cosmictiger/options.hpp
+	cosmictiger/particle.hpp
+	cosmictiger/position.hpp
+	cosmictiger/range.hpp
+	cosmictiger/tree.hpp
+	cosmictiger/vect.hpp
 )
 
 

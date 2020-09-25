@@ -25,11 +25,12 @@ class bucket {
 	unsigned sz;
 public:
 	inline bucket() {
-		parts = bucket_alloc();
 		sz = 0;
 	}
 	inline ~bucket() {
-		bucket_free(parts);
+		if (parts) {
+			bucket_free(parts);
+		}
 	}
 	inline particle* data() {
 		return parts;
@@ -47,8 +48,16 @@ public:
 	inline void resize(unsigned new_size) {
 		assert(new_size < opts.bucket_size);
 		sz = new_size;
+		if (sz > 0 && !parts) {
+			parts = bucket_alloc();
+		} else if (sz == 0 && parts) {
+			bucket_free(parts);
+		}
 	}
 	inline void push(const particle &part) {
+		if (!parts) {
+			parts = bucket_alloc();
+		}
 		parts[sz] = part;
 		sz++;
 		assert(sz < opts.bucket_size);
@@ -67,6 +76,9 @@ public:
 		assert(sz > 0);
 		parts[i] = parts[sz - 1];
 		sz--;
+		if( sz == 0 ) {
+			bucket_free(parts);
+		}
 	}
 	inline void remove(particle *iter) {
 		remove(iter - parts);
@@ -82,6 +94,9 @@ public:
 		sz = other.sz;
 		parts = other.parts;
 		other.sz = 0;
+		if( other.parts) {
+			bucket_free(other.parts);
+		}
 		return *this;
 	}
 	inline bucket(const bucket &other) {
@@ -94,6 +109,11 @@ public:
 	template<class A>
 	void serialize(A &&arc, unsigned) {
 		arc & sz;
+		if (sz > 0 && !parts) {
+			parts = bucket_alloc();
+		} else if (sz == 0 && parts) {
+			bucket_free(parts);
+		}
 		for (int i = 0; i < sz; i++) {
 			arc & parts[i];
 		}

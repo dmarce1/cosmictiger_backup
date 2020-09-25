@@ -46,7 +46,9 @@ public:
 	CUDA_EXPORT operator general_vect<U,N>() const;
 	template<class Arc>
 	CUDA_EXPORT void serialize(Arc &&a, unsigned) {
-		a & v;
+		for( int i = 0; i < N; i++) {
+			a & v[i];
+		}
 	}
 
 };

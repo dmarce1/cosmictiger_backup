@@ -16,7 +16,7 @@
 #include "serialize.hpp"
 #include "thread.hpp"
 
-#define HPX_DEFINE_COMPONENT_ACTION1(class_name, method, action_name ) \
+#define HPX_DEFINE_COMPONENT_ACTION1(class_name, method, action_name) \
 		class action_name : public hpx::detail::component_action< decltype(& class_name :: method), & class_name :: method > {\
 			using base_type = hpx::detail::component_action< decltype(& class_name :: method), & class_name :: method >; \
 		public: \
