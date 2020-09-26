@@ -32,6 +32,7 @@ public:
 	int find_family(int, tree_client, tree_client, std::vector<family_check>);
 	void destroy();
 	bucket get_parts();
+	std::uint64_t get_ptr();
 	std::array<family_check, NCHILD> get_family_checks() const;
 	std::uint64_t grow(int, bucket);
 	int load_balance(int, std::uint64_t);
@@ -48,6 +49,7 @@ public:
 	/**/HPX_DEFINE_COMPONENT_ACTION(tree,verify);
 	/**/HPX_DEFINE_COMPONENT_DIRECT_ACTION(tree,find_family);
 	/**/HPX_DEFINE_COMPONENT_DIRECT_ACTION(tree,get_family_checks);
+	/**/HPX_DEFINE_COMPONENT_DIRECT_ACTION(tree,get_ptr);
 	/**/HPX_DEFINE_COMPONENT_DIRECT_ACTION(tree,get_parts);
 	/**/HPX_DEFINE_COMPONENT_DIRECT_ACTION(tree,migrate);
 	template<class A>

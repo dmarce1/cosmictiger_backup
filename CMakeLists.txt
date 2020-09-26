@@ -46,6 +46,7 @@ set(cosmictiger_header_files
 	cosmictiger/position.hpp
 	cosmictiger/rand.hpp
 	cosmictiger/range.hpp
+	cosmictiger/timer.hpp
 	cosmictiger/tree.hpp
 	cosmictiger/tree_client.hpp
 	cosmictiger/tree_mems.hpp

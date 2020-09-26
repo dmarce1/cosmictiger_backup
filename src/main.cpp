@@ -2,6 +2,7 @@
 #include <cosmictiger/hpx.hpp>
 
 #include <cosmictiger/rand.hpp>
+#include <cosmictiger/timer.hpp>
 #include <cosmictiger/tree.hpp>
 
 int hpx_main(int argc, char *argv[]) {
@@ -19,16 +20,18 @@ int hpx_main(int argc, char *argv[]) {
 		parts.insert(p);
 	}
 	printf("Bucket size = %i\n", parts.size());
-	tree_client root = hpx::new_ < tree > (hpx::find_here(), 1).get();
+	auto root_id = hpx::new_ < tree > (hpx::find_here(), 1).get();
+	auto root = tree_client(std::move(root_id), hpx::async<tree::get_ptr_action>(root_id).get());
 	printf("Growing\n");
 	auto count = root.grow(0, std::move(parts)).get();
-	printf( "Counted %li parts\n", count);
+	printf("Counted %li parts\n", count);
 	printf("Grown\n");
+	auto ts = timer();
 	int rc = root.verify(0).get();
 	if (rc) {
 		printf("%s\n", tree_verification_error(rc).c_str());
 	}
-
+	printf("Tree traversal takes %e seconds\n", timer() - ts);
 	int step = 0;
 	root.drift(0, step++, 0.01).get();
 	return hpx::finalize();

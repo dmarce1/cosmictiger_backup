@@ -13,6 +13,7 @@ using drift_into_action_type = tree::drift_into_action;
 using get_family_checks_action_type = tree::get_family_checks_action;
 using find_family_action_type = tree::find_family_action;
 using get_parts_action_type = tree::get_parts_action;
+using get_ptr_action_type = tree::get_ptr_action;
 using grow_action_type = tree::grow_action;
 using prune_action_type = tree::prune_action;
 using load_balance_action_type = tree::load_balance_action;
@@ -25,6 +26,7 @@ HPX_REGISTER_ACTION (drift_into_action_type);
 HPX_REGISTER_ACTION (get_family_checks_action_type);
 HPX_REGISTER_ACTION (find_family_action_type);
 HPX_REGISTER_ACTION (get_parts_action_type);
+HPX_REGISTER_ACTION (get_ptr_action_type);
 HPX_REGISTER_ACTION (grow_action_type);
 HPX_REGISTER_ACTION (prune_action_type);
 HPX_REGISTER_ACTION (load_balance_action_type);
@@ -90,8 +92,12 @@ void tree::create_children() {
 	auto futl = hpx::new_ < tree > (hpx::find_here(), (tptr->boxid << 1) + 0);
 	auto futr = hpx::new_ < tree > (hpx::find_here(), (tptr->boxid << 1) + 1);
 	tptr->leaf = false;
-	tptr->children[0] = futl.get();
-	tptr->children[1] = futr.get();
+	auto id_left = futl.get();
+	auto id_right = futr.get();
+	auto fptrl = hpx::async < get_ptr_action > (id_left);
+	auto fptrr = hpx::async < get_ptr_action > (id_right);
+	tptr->children[0] = tree_client(std::move(id_left), fptrl.get());
+	tptr->children[1] = tree_client(std::move(id_right), fptrr.get());
 }
 
 void tree::destroy() {
@@ -101,7 +107,7 @@ void tree::destroy() {
 		futl.get();
 		futr.get();
 	}
-	tptr->self = hpx::invalid_id;
+	tptr->self = tree_client();
 }
 
 int tree::drift(int stack_cnt, int step, float dt) {
@@ -160,7 +166,7 @@ int tree::drift(int stack_cnt, int step, float dt) {
 						part.step++;
 						iter++;
 					} else {
-						printf( "particle leaving box\n");
+						printf("particle leaving box\n");
 					}
 				}
 			}
@@ -247,6 +253,12 @@ void tree::drift_into(int sender, bucket parts) {
 			}
 		}
 	}
+	hpx::future < std::uint64_t > grow_fut;
+	if (tptr->parts.size() > opts.bucket_size) {
+		grow_fut = hpx::async([this](bucket &&parts) {
+			return grow(0, std::move(parts));
+		}, std::move(tptr->parts));
+	}
 	std::array<hpx::future<void>, NSIBLING> futs;
 	hpx::future<void> pfut;
 	if (parent_parts.size()) {
@@ -263,6 +275,9 @@ void tree::drift_into(int sender, bucket parts) {
 	if (pfut.valid()) {
 		pfut.get();
 	}
+	if (grow_fut.valid()) {
+		grow_fut.get();
+	}
 	hpx::wait_all(futs.begin(), futs.end());
 }
 
@@ -275,11 +290,15 @@ std::array<family_check, NCHILD> tree::get_family_checks() const {
 	return checks;
 }
 
+std::uint64_t tree::get_ptr() {
+	return reinterpret_cast<std::uint64_t>(this);
+}
+
 int tree::find_family(int stack_cnt, tree_client parent, tree_client self, std::vector<family_check> checks) {
 	tptr->parent = parent;
 	tptr->self = self;
 	for (int si = 0; si < NSIBLING; si++) {
-		tptr->siblings[si] = hpx::invalid_id;
+		tptr->siblings[si] = tree_client();
 	}
 	const auto box = box_id_to_range(tptr->boxid);
 	for (const auto &c : checks) {
@@ -403,7 +422,7 @@ int tree::load_balance(int stack_cnt, std::uint64_t index) {
 
 tree_client tree::migrate(hpx::id_type locality) {
 	auto new_ptr = hpx::new_ < tree > (locality, *this);
-	tptr->self = new_ptr.get();
+	tptr->self = tree_client(new_ptr.get(), this);
 	return tptr->self;
 
 }
@@ -457,7 +476,7 @@ int tree::verify(int stack_cnt) const {
 		}
 	} else {
 		if (size() <= opts.bucket_size) {
-			printf( "%i %i\n",tptr->child_cnt[0], tptr->child_cnt[1]);
+			printf("%i %i\n", tptr->child_cnt[0], tptr->child_cnt[1]);
 			rc |= TREE_UNDERFLOW;
 		}
 		auto futl = tptr->children[0].verify(stack_cnt);

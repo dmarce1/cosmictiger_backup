@@ -17,7 +17,7 @@ static mutex_type mtx;
 
 #define CHUNK_SIZE (1024*1024)
 
-//std::atomic<std::uint64_t> cnt(0);
+std::atomic<std::uint64_t> cnt(0);
 
 cup* bucket_cup_alloc() {
 	std::lock_guard < mutex_type > lock(mtx);

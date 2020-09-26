@@ -11,15 +11,26 @@
 
 class family_check;
 
+
 class tree_client {
 	hpx::id_type id;
+	std::uint64_t ptr;
 public:
-	/**/DEFAULT_CLASS_MEMBERS(tree_client)
-	;
-	tree_client(hpx::id_type &&myid);
-	tree_client& operator=(const hpx::id_type &myid);
+	tree_client(tree_client&&) = default;
+	tree_client(const tree_client&) = default;
+	tree_client& operator=(tree_client&&) = default;
+	tree_client& operator=(const tree_client&) = default;
+	tree_client() {
+		id = hpx::invalid_id;
+		ptr = 0;
+	}
+	tree_client(hpx::id_type &&myid, tree* local_ptr);
+	tree_client(hpx::id_type &&myid, std::uint64_t local_ptr);
 	operator hpx::id_type() const {
 		return id;
+	}
+	bool operator==( const tree_client& other ) const {
+		return id == other.id;
 	}
 	hpx::future<void> destroy() const;
 	hpx::future<int> drift(int, int, float dt) const;
@@ -35,6 +46,7 @@ public:
 	template<class A>
 	void serialize(A &&arc, unsigned) {
 		arc & id;
+		arc & ptr;
 	}
 };
 
