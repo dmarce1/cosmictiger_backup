@@ -14,20 +14,26 @@
 struct particle {
 	vect<position> x;
 	vect<float> v;
+	float dt;
 	struct {
 		std::uint64_t rung :7;
 		std::uint64_t out :1;
-		std::uint64_t group :56;
+		std::uint64_t step :1;
+		std::uint64_t group :55;
 	};
 	template<class A>
-	void serialize(A&& arc, unsigned) {
+	void serialize(A &&arc, unsigned) {
 		arc & x;
 		arc & v;
+		arc & dt;
 		std::uint8_t tmp1;
 		std::uint64_t tmp2;
 		tmp1 = rung;
 		arc & tmp1;
 		rung = tmp1;
+		tmp1 = step;
+		arc & tmp1;
+		step = tmp1;
 		tmp1 = out;
 		arc & tmp1;
 		out = tmp1;

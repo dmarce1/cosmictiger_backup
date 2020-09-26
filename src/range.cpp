@@ -15,6 +15,37 @@ vect<double> range_center(const range &r) {
 	return c;
 }
 
+int range_sibling_index(const range &r1, const range &r2) {
+	int cnt = 0;
+	int rc;
+	for (int dim = 0; dim < NDIM, cnt < 2; dim++) {
+		if ((r2.min[dim] == r1.max[dim]) || (r2.min[dim] + 1.0 == r1.max[dim])) {
+			rc = 2 * dim + 1;
+			cnt++;
+		} else if ((r1.min[dim] == r2.max[dim]) || (r1.min[dim] + 1.0 == r2.max[dim])) {
+			rc = 2 * dim;
+			cnt++;
+		}
+	}
+	if (cnt != 1) {
+		rc = -1;
+	}
+	return rc;
+}
+
+int range_max_dim(const range &r) {
+	int max_dim;
+	double max_span = 0.0;
+	for (int dim = 0; dim < NDIM; dim++) {
+		const auto span = r.max[dim] - r.min[dim];
+		if (span > max_span) {
+			max_dim = dim;
+			max_span = span;
+		}
+	}
+	return max_dim;
+}
+
 double range_max_span(const range &r) {
 	double s = 0.0;
 	for (int dim = 0; dim < NDIM; dim++) {
@@ -134,7 +165,6 @@ bool operator!=(const range &a, const range &b) {
 range box_id_to_range(box_id_type id) {
 	vect<double> x = 0.0;
 	vect<double> dx = 1.0;
-
 
 	while (id != 1) {
 //		printf( "%lli\n", id);

@@ -22,6 +22,7 @@ bool options::process_options(int argc, char *argv[]) {
 	("help", "produce help message") //
 	("config_file", po::value < std::string > (&config_file)->default_value(""), "configuration file") //
 	("bucket_size", po::value<int>(&bucket_size)->default_value(64), "maximum number of particles on a node") //
+	("problem_size", po::value<std::uint64_t>(&problem_size)->default_value(1024), "total number of particles") //
 			;
 
 	boost::program_options::variables_map vm;
@@ -53,5 +54,6 @@ bool options::process_options(int argc, char *argv[]) {
 #define SHOW_STR( opt ) std::cout << std::string( #opt ) << " = " << opt << '\n';
 	SHOW(bucket_size);
 	SHOW_STR(config_file);
+	SHOW_STR(problem_size);
 	return true;
 }

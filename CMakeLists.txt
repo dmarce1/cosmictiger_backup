@@ -22,15 +22,17 @@ find_package(Silo REQUIRED)
 find_package(Boost REQUIRED)
 enable_language(CUDA)
 
-set(CMAKE_CXX_FLAGS "-O3 -DNDEBUG -ffast-math -march=native")
+set(CMAKE_CXX_FLAGS "-g -ffast-math -march=native")
 
 set(cosmictiger_source_files
 	src/bucket.cpp
 	src/hpx.cpp
 	src/main.cpp
 	src/options.cpp
+	src/rand.cpp
 	src/range.cpp
 	src/tree.cpp
+	src/tree_client.cpp
 )
 
 
@@ -42,8 +44,11 @@ set(cosmictiger_header_files
 	cosmictiger/options.hpp
 	cosmictiger/particle.hpp
 	cosmictiger/position.hpp
+	cosmictiger/rand.hpp
 	cosmictiger/range.hpp
 	cosmictiger/tree.hpp
+	cosmictiger/tree_client.hpp
+	cosmictiger/tree_mems.hpp
 	cosmictiger/vect.hpp
 )
 

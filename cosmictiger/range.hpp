@@ -26,6 +26,8 @@ using box_id_type = unsigned __int128;
 
 range box_id_to_range(box_id_type id);
 
+int range_max_dim(const range& r );
+int range_sibling_index(const range &r1, const range &r2);
 double range_max_span(const range &r);
 range reflect_range(const range&, int dim, double axis);
 vect<double> range_center(const range &r);

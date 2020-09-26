@@ -8,7 +8,15 @@
 #include <vector>
 
 class tree_mems;
+class family_check;
+class tree_client;
 
+
+#define TREE_OVERFLOW (0x1)
+#define TREE_UNDERFLOW (0x2)
+#define TREE_INVALID (0x4)
+
+std::string tree_verification_error(int rc);
 
 class tree: public hpx::components::managed_component_base<tree> {
 	tree_mems *tptr;
@@ -16,10 +24,32 @@ class tree: public hpx::components::managed_component_base<tree> {
 public:
 	tree();
 	tree(box_id_type id);
+	tree(const tree&);
 	~tree();
 	void create_children();
-	void add_parts(std::vector<particle>&&, int);
-	HPX_DEFINE_COMPONENT_ACTION(tree,add_parts);
+	int drift(int, int, float dt);
+	void drift_into(int, bucket);
+	int find_family(int, tree_client, tree_client, std::vector<family_check>);
+	void destroy();
+	bucket get_parts();
+	std::array<family_check, NCHILD> get_family_checks() const;
+	std::uint64_t grow(int, bucket);
+	int load_balance(int, std::uint64_t);
+	tree_client migrate(hpx::id_type);
+	int prune(int);
+	int verify(int) const;
+	std::size_t size() const;
+	/**/HPX_DEFINE_COMPONENT_ACTION(tree,destroy);
+	/**/HPX_DEFINE_COMPONENT_ACTION(tree,drift);
+	/**/HPX_DEFINE_COMPONENT_ACTION(tree,drift_into);
+	/**/HPX_DEFINE_COMPONENT_ACTION(tree,grow);
+	/**/HPX_DEFINE_COMPONENT_ACTION(tree,load_balance);
+	/**/HPX_DEFINE_COMPONENT_ACTION(tree,prune);
+	/**/HPX_DEFINE_COMPONENT_ACTION(tree,verify);
+	/**/HPX_DEFINE_COMPONENT_DIRECT_ACTION(tree,find_family);
+	/**/HPX_DEFINE_COMPONENT_DIRECT_ACTION(tree,get_family_checks);
+	/**/HPX_DEFINE_COMPONENT_DIRECT_ACTION(tree,get_parts);
+	/**/HPX_DEFINE_COMPONENT_DIRECT_ACTION(tree,migrate);
 	template<class A>
 	void serialize(A &&arc, unsigned) {
 		arc & *tptr;
@@ -27,30 +57,5 @@ public:
 
 };
 
-class tree_client {
-	hpx::id_type id;
-public:
-	/**/DEFAULT_CLASS_MEMBERS(tree_client);
-	tree_client(hpx::id_type &&myid);
-	hpx::future<void> add_parts(std::vector<particle>&&, int);
-	template<class A>
-	void serialize(A &&arc, unsigned) {
-		arc & id;
-	}
-};
-
-
-struct tree_mems {
-	bucket parts;
-	std::array<tree_client, NCHILD> children;
-	std::array<tree_client, NSIBLING> siblings;
-	box_id_type boxid;
-	std::uint8_t leaf;
-	template<class A>
-	void serialize(A &&arc, unsigned) {
-		arc & parts;
-		arc & children;
-		arc & siblings;
-		arc & boxid;
-	}
-};
+#include <cosmictiger/tree_client.hpp>
+#include <cosmictiger/tree_mems.hpp>

@@ -7,11 +7,13 @@
 class options {
 public:
 	int bucket_size;
+	std::uint64_t problem_size;
 	std::string config_file;
 
 	template<class Arc>
 	void serialize(Arc &arc, unsigned) {
 		arc & bucket_size;
+		arc & problem_size;
 		arc & config_file;
 	}
 
