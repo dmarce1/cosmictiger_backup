@@ -18,16 +18,19 @@ int hpx_main(int argc, char *argv[]) {
 		p.dt = 0.0;
 		parts.insert(p);
 	}
-	auto test = parts;
-	printf( "Bucket size = %i\n", parts.size());
+	printf("Bucket size = %i\n", parts.size());
 	tree_client root = hpx::new_ < tree > (hpx::find_here(), 1).get();
-	printf( "Growing\n");
-	root.grow(0, std::move(parts)).get();
-	printf( "Grown\n");
+	printf("Growing\n");
+	auto count = root.grow(0, std::move(parts)).get();
+	printf( "Counted %li parts\n", count);
+	printf("Grown\n");
 	int rc = root.verify(0).get();
-	if( rc ) {
-		printf( "%s\n", tree_verification_error(rc).c_str());
+	if (rc) {
+		printf("%s\n", tree_verification_error(rc).c_str());
 	}
+
+	int step = 0;
+	root.drift(0, step++, 0.01).get();
 	return hpx::finalize();
 }
 

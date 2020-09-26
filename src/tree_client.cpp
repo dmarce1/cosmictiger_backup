@@ -17,25 +17,6 @@
 static std::atomic<int> thread_cnt(0);
 static const int max_threads = 4 * std::thread::hardware_concurrency();
 
-static bool thread_me(int stack_cnt, hpx::id_type gid) {
-	bool threadme;
-	if (thread_cnt++ < max_threads) {
-		threadme = true;
-	} else {
-		thread_cnt--;
-		threadme = false;
-	}
-	if (!threadme) {
-		if (gid != hpx::find_here()) {
-			thread_cnt++;
-			threadme = true;
-		} else if (stack_cnt >= MAX_STACK) {
-			threadme = true;
-		}
-	}
-	return threadme;
-}
-
 template<class T, class Function, class ... Args>
 hpx::future<T> thread_handler(const hpx::id_type &id, const hpx::id_type loc_id, int stack_cnt, Args &&... args) {
 	Function function;
@@ -90,7 +71,7 @@ hpx::future<int> tree_client::find_family(int stack_cnt, tree_client parent, tre
 	return thread_handler<int, tree::find_family_action>(id, hpx::get_colocation_id(id).get(), stack_cnt, std::move(parent), std::move(self), std::move(checks));
 }
 
-hpx::future<std::uint64_t> tree_client::grow(int stack_cnt, bucket parts) const {
+hpx::future<std::uint64_t> tree_client::grow(int stack_cnt, bucket&& parts) const {
 	return thread_handler<std::uint64_t, tree::grow_action>(id, hpx::get_colocation_id(id).get(), stack_cnt, std::move(parts));
 }
 

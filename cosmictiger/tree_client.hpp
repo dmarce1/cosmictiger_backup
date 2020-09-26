@@ -27,7 +27,7 @@ public:
 	hpx::future<int> find_family(int, tree_client, tree_client, std::vector<family_check>) const;
 	hpx::future<std::array<family_check, NCHILD>> get_family_checks() const;
 	hpx::future<bucket> get_parts() const;
-	hpx::future<std::uint64_t> grow(int, bucket) const;
+	hpx::future<std::uint64_t> grow(int, bucket&&) const;
 	hpx::future<tree_client> migrate(hpx::id_type) const;
 	hpx::future<int> load_balance(int, std::uint64_t) const;
 	hpx::future<int> prune(int) const;

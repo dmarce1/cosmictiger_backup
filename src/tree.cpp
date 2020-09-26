@@ -38,13 +38,13 @@ static mutex_type mtx;
 
 std::string tree_verification_error(int rc) {
 	std::string error = "";
-	if( rc & TREE_OVERFLOW) {
+	if (rc & TREE_OVERFLOW) {
 		error += "TREE_OVERFLOW ";
 	}
-	if( rc & TREE_UNDERFLOW) {
+	if (rc & TREE_UNDERFLOW) {
 		error += "TREE_UNDERFLOW ";
 	}
-	if( rc & TREE_INVALID) {
+	if (rc & TREE_INVALID) {
 		error += "TREE_INVALID ";
 	}
 	return error;
@@ -119,7 +119,7 @@ int tree::drift(int stack_cnt, int step, float dt) {
 					int si = -1;
 					part.dt = dt;
 					auto this_dt = dt;
-					for (int dim = dim; si < NDIM; dim++) {
+					for (int dim = dim; dim < NDIM; dim++) {
 						if (v[dim] > 0.0) {
 							const double t = (box.max[dim] - x[dim]) / v[dim];
 							if (t > 0.0 && t < this_dt) {
@@ -159,6 +159,8 @@ int tree::drift(int stack_cnt, int step, float dt) {
 						part.dt = 0.0;
 						part.step++;
 						iter++;
+					} else {
+						printf( "particle leaving box\n");
 					}
 				}
 			}
@@ -176,7 +178,9 @@ int tree::drift(int stack_cnt, int step, float dt) {
 				futs[si] = hpx::make_ready_future();
 			}
 		}
-		pfut.get();
+		if (pfut.valid()) {
+			pfut.get();
+		}
 		hpx::wait_all(futs.begin(), futs.end());
 	} else {
 		auto futl = tptr->children[0].drift(stack_cnt, step, dt);
@@ -199,7 +203,7 @@ void tree::drift_into(int sender, bucket parts) {
 			const auto x = pos_to_double(part.x);
 			int si = -1;
 			auto this_dt = part.dt;
-			for (int dim = dim; si < NDIM; dim++) {
+			for (int dim = dim; dim < NDIM; dim++) {
 				if (v[dim] > 0.0) {
 					const double t = (box.max[dim] - x[dim]) / v[dim];
 					if (t > 0.0 && t < this_dt) {
@@ -256,7 +260,9 @@ void tree::drift_into(int sender, bucket parts) {
 			futs[si] = hpx::make_ready_future();
 		}
 	}
-	pfut.get();
+	if (pfut.valid()) {
+		pfut.get();
+	}
 	hpx::wait_all(futs.begin(), futs.end());
 }
 
@@ -305,12 +311,11 @@ int tree::find_family(int stack_cnt, tree_client parent, tree_client self, std::
 }
 
 std::uint64_t tree::grow(int stack_cnt, bucket parts) {
-	printf("Growing on %x\n", (int) tptr->boxid);
+
 	tptr->child_cnt[0] = 0;
 	tptr->child_cnt[1] = 0;
 	if (tptr->leaf) {
-		printf("%i %i\n", parts.size(), tptr->parts.size());
-		if (parts.size() + tptr->parts.size() < opts.bucket_size) {
+		if (parts.size() + tptr->parts.size() <= opts.bucket_size) {
 			while (parts.size()) {
 				tptr->parts.insert(parts.front());
 				parts.remove(parts.begin());
@@ -452,6 +457,7 @@ int tree::verify(int stack_cnt) const {
 		}
 	} else {
 		if (size() <= opts.bucket_size) {
+			printf( "%i %i\n",tptr->child_cnt[0], tptr->child_cnt[1]);
 			rc |= TREE_UNDERFLOW;
 		}
 		auto futl = tptr->children[0].verify(stack_cnt);
