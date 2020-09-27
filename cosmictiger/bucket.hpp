@@ -30,6 +30,7 @@ void bucket_cup_free(cup *ptr);
 
 struct bucket {
 	class iterator {
+	public:
 		cup *ptr;
 		int off;
 	public:
@@ -50,7 +51,7 @@ struct bucket {
 			return &(ptr->data[off]);
 		}
 		bool operator==(const iterator &other) const {
-			return ptr == other.ptr && off == other.off;
+			return (ptr == other.ptr) && ((off % CUP_SIZE) == (other.off % CUP_SIZE));
 		}
 		bool operator!=(const iterator &other) const {
 			return !(*this == other);
@@ -157,14 +158,11 @@ public:
 	inline const_iterator cend() const {
 		return stop;
 	}
-	inline void remove(iterator iter) {
+	inline iterator remove(iterator iter) {
 		assert(start.ptr);
-		assert(sz>=0);
+		assert(sz >= 0);
 		iterator last = stop;
 		last.off--;
-		if (last.off < 0) {
-			last.ptr = last.ptr->prev;
-		}
 		*iter = *last;
 		stop.off--;
 		sz--;
@@ -176,10 +174,19 @@ public:
 				start.off = stop.off = 0;
 			} else {
 				stop.ptr = stop.ptr->prev;
+				if (stop.ptr->prev) {
+					stop.ptr->prev->next = stop.ptr;
+				}
+				stop.ptr->next = nullptr;
 				stop.off = CUP_SIZE;
+			}
+			if (iter.ptr == free_ptr && iter.off == 0) {
+				iter.ptr = stop.ptr;
+				iter.off = stop.off;
 			}
 			bucket_cup_free(free_ptr);
 		}
+		return iter;
 	}
 	inline bucket& operator=(const bucket &other) {
 		clear();

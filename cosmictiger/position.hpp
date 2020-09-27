@@ -19,6 +19,7 @@ public:DEFAULT_CLASS_MEMBERS(position)
 			r += 1.0;
 		}
 		i = (r - 0.5) * pos_max;
+	//	printf( "%i %e\n", i, r);
 	}
 	operator double() const {
 		return (double(i) + 0.5) * pos_inv + 0.5;
@@ -33,6 +34,10 @@ public:DEFAULT_CLASS_MEMBERS(position)
 		arc & i;
 	}
 };
+
+inline double pos_to_double(const position &p1) {
+	return double(p1);
+}
 
 inline vect<double> pos_to_double(const vect<position> &p1) {
 	vect<double> p2;

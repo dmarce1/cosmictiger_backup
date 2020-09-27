@@ -7,32 +7,6 @@
 
 HPX_REGISTER_MINIMAL_COMPONENT_FACTORY(hpx::components::managed_component<tree>, tree);
 
-using destroy_action_type = tree::destroy_action;
-using drift_action_type = tree::drift_action;
-using drift_into_action_type = tree::drift_into_action;
-using get_family_checks_action_type = tree::get_family_checks_action;
-using find_family_action_type = tree::find_family_action;
-using get_parts_action_type = tree::get_parts_action;
-using get_ptr_action_type = tree::get_ptr_action;
-using grow_action_type = tree::grow_action;
-using prune_action_type = tree::prune_action;
-using load_balance_action_type = tree::load_balance_action;
-using migrate_action_type = tree::migrate_action;
-using verify_action_type = tree::verify_action;
-
-HPX_REGISTER_ACTION (destroy_action_type);
-HPX_REGISTER_ACTION (drift_action_type);
-HPX_REGISTER_ACTION (drift_into_action_type);
-HPX_REGISTER_ACTION (get_family_checks_action_type);
-HPX_REGISTER_ACTION (find_family_action_type);
-HPX_REGISTER_ACTION (get_parts_action_type);
-HPX_REGISTER_ACTION (get_ptr_action_type);
-HPX_REGISTER_ACTION (grow_action_type);
-HPX_REGISTER_ACTION (prune_action_type);
-HPX_REGISTER_ACTION (load_balance_action_type);
-HPX_REGISTER_ACTION (migrate_action_type);
-HPX_REGISTER_ACTION (verify_action_type);
-
 static std::stack<tree_mems*> stack;
 static mutex_type mtx;
 
@@ -51,9 +25,11 @@ std::string tree_verification_error(int rc) {
 	}
 	return error;
 }
+//
+//std::atomic<int> cnt(0);
 
 tree_mems* tree_mems_alloc() {
-	std::lock_guard < mutex_type > lock(mtx);
+	std::lock_guard<mutex_type> lock(mtx);
 	if (stack.empty()) {
 		tree_mems *base = (tree_mems*) malloc(sizeof(tree_mems) * CHUNK_SIZE);
 		for (int i = 0; i < CHUNK_SIZE; i++) {
@@ -62,14 +38,23 @@ tree_mems* tree_mems_alloc() {
 	}
 	tree_mems *ptr = stack.top();
 	stack.pop();
+//	cnt++;
+//	if( cnt % 100000 == 0 ) {
+//		printf( "%i\n", (int) cnt);
+//	}
+//
 	return ptr;
 }
 
 void tree_mems_free(tree_mems *ptr) {
-	std::lock_guard < mutex_type > lock(mtx);
+	std::lock_guard<mutex_type> lock(mtx);
 	stack.push(ptr);
-}
+//	cnt--;
+//	if( cnt % 100000 == 0 ) {
+//		printf( "%i\n", (int) cnt);
+//	}
 
+}
 tree::tree() {
 	tptr = tree_mems_alloc();
 }
@@ -100,239 +85,126 @@ void tree::create_children() {
 	tptr->children[1] = tree_client(std::move(id_right), fptrr.get());
 }
 
-void tree::destroy() {
-	if (!tptr->leaf) {
-		auto futl = tptr->children[0].destroy();
-		auto futr = tptr->children[1].destroy();
-		futl.get();
-		futr.get();
-	}
-	tptr->self = tree_client();
-}
-
-int tree::drift(int stack_cnt, int step, float dt) {
+int tree::drift(int stack_cnt, int step, tree_client parent, tree_client self, float dt) {
+	tptr->parent = parent;
 	if (tptr->leaf) {
-		std::array<bucket, NSIBLING> exit_parts;
-		bucket parent_parts;
+		bucket exit_parts;
 		{
-			std::lock_guard < mutex_type > lock(tptr->mtx);
+			std::lock_guard<mutex_type> lock(tptr->mtx);
 			const auto box = box_id_to_range(tptr->boxid);
-			for (auto iter = tptr->parts.begin(); iter != tptr->parts.end();) {
-				if (iter->step == step % 2) {
-					auto &part = *iter;
-					const auto v = part.v;
-					const auto x = pos_to_double(part.x);
-					int si = -1;
-					part.dt = dt;
-					auto this_dt = dt;
-					for (int dim = dim; dim < NDIM; dim++) {
-						if (v[dim] > 0.0) {
-							const double t = (box.max[dim] - x[dim]) / v[dim];
-							if (t > 0.0 && t < this_dt) {
-								si = 2 * dim + 1;
-								this_dt = t;
-							}
-						} else if (v[dim] < 0.0) {
-							const double t = (box.min[dim] - x[dim]) / v[dim];
-							if (t > 0.0 && t < this_dt) {
-								si = 2 * dim;
-								this_dt = t;
-							}
-						}
-					}
-					vect<double> this_x = x + v * this_dt;
-					bool leaves_box = false;
-					if (si != -1) {
-						const auto dim = si / 2;
-						part.dt -= this_dt;
-						if (si % 2 == 0) {
-							leaves_box = (this_x[dim] + v[dim] * part.dt) > box.max[dim];
-						} else {
-							leaves_box = (this_x[dim] + v[dim] * part.dt) < box.min[dim];
-						}
-						if (leaves_box) {
-							part.x = this_x;
-							if ((hpx::id_type) tptr->siblings[si] != hpx::invalid_id) {
-								exit_parts[si].insert(part);
-							} else {
-								parent_parts.insert(part);
-							}
-							tptr->parts.remove(iter);
-						}
-					}
-					if (!leaves_box) {
-						part.x = this_x;
-						part.dt = 0.0;
-						part.step++;
-						iter++;
+			auto i = tptr->parts.begin();
+			while (i != tptr->parts.end()) {
+				if (step % 2 == i->step) {
+					auto x = pos_to_double(i->x);
+					const auto v = i->v;
+					x += v * dt;
+					i->x = double_to_pos(x);
+					i->step++;
+					if (!in_range(x, box)) {
+						exit_parts.insert(*i);
+						i = tptr->parts.remove(i);
 					} else {
-						printf("particle leaving box\n");
+						i++;
 					}
+				} else {
+					i++;
 				}
 			}
 		}
-		std::array<hpx::future<void>, NSIBLING> futs;
-		hpx::future<void> pfut;
-		if (parent_parts.size()) {
-			assert(tptr->parent != hpx::invalid_id);
-			pfut = tptr->parent.drift_into(-1, std::move(parent_parts));
+		if (exit_parts.size()) {
+			parent.find_home(stack_cnt, std::move(exit_parts)).get();
 		}
-		for (int si = 0; si < NSIBLING; si++) {
-			if (exit_parts[si].size()) {
-				futs[si] = tptr->siblings[si].drift_into(si ^ 1, std::move(exit_parts[si]));
-			} else {
-				futs[si] = hpx::make_ready_future();
-			}
-		}
-		if (pfut.valid()) {
-			pfut.get();
-		}
-		hpx::wait_all(futs.begin(), futs.end());
 	} else {
-		auto futl = tptr->children[0].drift(stack_cnt, step, dt);
-		auto futr = tptr->children[1].drift(stack_cnt, step, dt);
+		auto futl = tptr->children[0].drift(stack_cnt, step, self, tptr->children[0], dt);
+		auto futr = tptr->children[1].drift(stack_cnt, step, self, tptr->children[1], dt);
 		futl.get();
 		futr.get();
 	}
 	return 0;
 }
 
-void tree::drift_into(int sender, bucket parts) {
-	std::array<bucket, NSIBLING> exit_parts;
-	bucket parent_parts;
-	{
-		std::lock_guard < mutex_type > lock(tptr->mtx);
-		const auto box = box_id_to_range(tptr->boxid);
-		for (auto iter = parts.begin(); iter != parts.end();) {
-			auto &part = *iter;
-			const auto v = part.v;
-			const auto x = pos_to_double(part.x);
-			int si = -1;
-			auto this_dt = part.dt;
-			for (int dim = dim; dim < NDIM; dim++) {
-				if (v[dim] > 0.0) {
-					const double t = (box.max[dim] - x[dim]) / v[dim];
-					if (t > 0.0 && t < this_dt) {
-						si = 2 * dim + 1;
-						this_dt = t;
-					}
-				} else if (v[dim] < 0.0) {
-					const double t = (box.min[dim] - x[dim]) / v[dim];
-					if (t > 0.0 && t < this_dt) {
-						si = 2 * dim;
-						this_dt = t;
-					}
-				}
+int tree::find_home(int stack_cnt, bucket parts) {
+	const auto box = box_id_to_range(tptr->boxid);
+	if (tptr->leaf) {
+		std::lock_guard<mutex_type> lock(tptr->mtx);
+		while (parts.size()) {
+			assert(in_range(pos_to_double(parts.front().x), box));
+			tptr->parts.insert(parts.front());
+			parts.remove(parts.begin());
+		}
+		if( tptr->parts.size() > opts.bucket_size) {
+			create_children();
+			bucket parts_left;
+			bucket parts_right;
+			while (tptr->parts.size()) {
+				parts.insert(tptr->parts.front());
+				tptr->parts.remove(tptr->parts.begin());
 			}
-			vect<double> this_x = x + v * this_dt;
-			bool leaves_box = false;
-			if (si != -1) {
-				const auto dim = si / 2;
-				part.dt -= this_dt;
-				if (si % 2 == 0) {
-					leaves_box = (this_x[dim] + v[dim] * part.dt) > box.max[dim];
+			range box = box_id_to_range(tptr->boxid);
+			const int dim = range_max_dim(box);
+			const double xmid = 0.5 * (box.max[dim] + box.min[dim]);
+			while (parts.size()) {
+				const auto &p = parts.front();
+				if (double(p.x[dim]) < xmid) {
+					parts_left.insert(p);
 				} else {
-					leaves_box = (this_x[dim] + v[dim] * part.dt) < box.min[dim];
+					parts_right.insert(p);
 				}
-				if (leaves_box) {
-					part.x = this_x;
-					if ((hpx::id_type) tptr->siblings[si] != hpx::invalid_id) {
-						exit_parts[si].insert(part);
-					} else {
-						parent_parts.insert(part);
-					}
-					tptr->parts.remove(iter);
-				}
+				parts.remove(parts.begin());
 			}
-			if (!leaves_box) {
-				part.x = this_x;
-				part.dt = 0.0;
-				part.step++;
-				tptr->parts.insert(part);
-				iter++;
-			}
+			auto futl = tptr->children[0].grow(stack_cnt, std::move(parts_left));
+			auto futr = tptr->children[1].grow(stack_cnt, std::move(parts_right));
+			tptr->child_cnt[0] = futl.get();
+			tptr->child_cnt[1] = futr.get();
 		}
-	}
-	hpx::future < std::uint64_t > grow_fut;
-	if (tptr->parts.size() > opts.bucket_size) {
-		grow_fut = hpx::async([this](bucket &&parts) {
-			return grow(0, std::move(parts));
-		}, std::move(tptr->parts));
-	}
-	std::array<hpx::future<void>, NSIBLING> futs;
-	hpx::future<void> pfut;
-	if (parent_parts.size()) {
-		assert(tptr->parent != hpx::invalid_id);
-		pfut = tptr->parent.drift_into(-1, std::move(parent_parts));
-	}
-	for (int si = 0; si < NSIBLING; si++) {
-		if (exit_parts[si].size()) {
-			futs[si] = tptr->siblings[si].drift_into(si ^ 1, std::move(exit_parts[si]));
+	} else {
+		bucket p_parts;
+		bucket l_parts;
+		bucket r_parts;
+		const auto boxl = box_id_to_range(tptr->boxid << 1);
+		const auto boxr = box_id_to_range((tptr->boxid << 1) + 1);
+		while (parts.size()) {
+			auto &p = parts.front();
+			const auto x = pos_to_double(p.x);
+			if (in_range(x, boxl)) {
+				l_parts.insert(p);
+			} else if (in_range(x, boxr)) {
+				r_parts.insert(p);
+			} else {
+				p_parts.insert(p);
+			}
+			parts.remove(parts.begin());
+		}
+		hpx::future<int> pfut;
+		hpx::future<int> lfut;
+		hpx::future<int> rfut;
+		if (p_parts.size()) {
+			pfut = tptr->parent.find_home(stack_cnt, std::move(p_parts));
 		} else {
-			futs[si] = hpx::make_ready_future();
+			pfut = hpx::make_ready_future(0);
 		}
-	}
-	if (pfut.valid()) {
+		if (l_parts.size()) {
+			lfut = tptr->children[0].find_home(stack_cnt, std::move(l_parts));
+		} else {
+			lfut = hpx::make_ready_future(0);
+		}
+		if (r_parts.size()) {
+			rfut = tptr->children[1].find_home(stack_cnt, std::move(r_parts));
+		} else {
+			rfut = hpx::make_ready_future(0);
+		}
 		pfut.get();
+		lfut.get();
+		rfut.get();
 	}
-	if (grow_fut.valid()) {
-		grow_fut.get();
-	}
-	hpx::wait_all(futs.begin(), futs.end());
-}
-
-std::array<family_check, NCHILD> tree::get_family_checks() const {
-	std::array<family_check, NCHILD> checks;
-	for (int ci = 0; ci < NCHILD; ci++) {
-		checks[ci].node = tptr->children[ci];
-		checks[ci].boxid = (tptr->boxid << 1) + ci;
-	}
-	return checks;
+	return 0;
 }
 
 std::uint64_t tree::get_ptr() {
 	return reinterpret_cast<std::uint64_t>(this);
 }
 
-int tree::find_family(int stack_cnt, tree_client parent, tree_client self, std::vector<family_check> checks) {
-	tptr->parent = parent;
-	tptr->self = self;
-	for (int si = 0; si < NSIBLING; si++) {
-		tptr->siblings[si] = tree_client();
-	}
-	const auto box = box_id_to_range(tptr->boxid);
-	for (const auto &c : checks) {
-		const auto obox = box_id_to_range(c.boxid);
-		const auto si = range_sibling_index(box, obox);
-		if (si != -1) {
-			tptr->siblings[si] = c.node;
-		}
-	}
-	if (!tptr->leaf) {
-		std::vector < hpx::future<std::array<family_check, NCHILD>> > cfuts;
-		for (const auto &c : checks) {
-			cfuts.push_back(c.node.get_family_checks());
-		}
-		checks.resize(0);
-		checks.reserve(cfuts.size() * NCHILD);
-		for (auto &fut : cfuts) {
-			const auto tmp = fut.get();
-			for (int ci = 0; ci < NCHILD; ci++) {
-				checks.push_back(tmp[ci]);
-			}
-		}
-		auto futl = tptr->children[0].find_family(stack_cnt, self, tptr->children[0], checks);
-		auto futr = tptr->children[1].find_family(stack_cnt, self, tptr->children[1], std::move(checks));
-		futl.get();
-		futr.get();
-	}
-	return 0;
-}
-
-std::uint64_t tree::grow(int stack_cnt, bucket parts) {
-
-	tptr->child_cnt[0] = 0;
-	tptr->child_cnt[1] = 0;
+int tree::grow(int stack_cnt, bucket &&parts) {
 	if (tptr->leaf) {
 		if (parts.size() + tptr->parts.size() <= opts.bucket_size) {
 			while (parts.size()) {
@@ -364,10 +236,10 @@ std::uint64_t tree::grow(int stack_cnt, bucket parts) {
 		}
 		auto futl = tptr->children[0].grow(stack_cnt, std::move(parts_left));
 		auto futr = tptr->children[1].grow(stack_cnt, std::move(parts_right));
-		tptr->child_cnt[0] = futl.get();
-		tptr->child_cnt[1] = futr.get();
+		futl.get();
+		futr.get();
 	}
-	return size();
+	return 0;
 }
 
 bucket tree::get_parts() {
@@ -422,33 +294,35 @@ int tree::load_balance(int stack_cnt, std::uint64_t index) {
 
 tree_client tree::migrate(hpx::id_type locality) {
 	auto new_ptr = hpx::new_ < tree > (locality, *this);
-	tptr->self = tree_client(new_ptr.get(), this);
-	return tptr->self;
+	return tree_client(new_ptr.get(), this);
 
 }
 
-int tree::prune(int stack_cnt) {
+std::uint64_t tree::prune(int stack_cnt) {
 	if (!tptr->leaf) {
+		auto futl = tptr->children[0].prune(stack_cnt);
+		auto futr = tptr->children[1].prune(stack_cnt);
+		tptr->child_cnt[0] = futl.get();
+		tptr->child_cnt[1] = futr.get();
 		if (size() <= opts.bucket_size) {
 			auto futl = tptr->children[0].get_parts();
 			auto futr = tptr->children[1].get_parts();
-			auto tmp = futl.get();
-			while (tmp.size()) {
-				tptr->parts.insert(tmp.front());
-				tmp.remove(tmp.begin());
+			auto tmpl = futl.get();
+			tptr->children[0] = tree_client();
+			auto tmpr = futr.get();
+			tptr->children[1] = tree_client();
+			while (tmpl.size()) {
+				tptr->parts.insert(tmpl.front());
+				tmpl.remove(tmpl.begin());
 			}
-			tmp = futr.get();
-			while (tmp.size()) {
-				tptr->parts.insert(tmp.front());
-				tmp.remove(tmp.begin());
+			while (tmpr.size()) {
+				tptr->parts.insert(tmpr.front());
+				tmpr.remove(tmpr.begin());
 			}
 			tptr->leaf = true;
 		}
 	} else {
-		auto futl = tptr->children[0].prune(stack_cnt);
-		auto futr = tptr->children[1].prune(stack_cnt);
-		futl.get();
-		futr.get();
+		return size();
 	}
 	return 0;
 }
@@ -476,7 +350,6 @@ int tree::verify(int stack_cnt) const {
 		}
 	} else {
 		if (size() <= opts.bucket_size) {
-			printf("%i %i\n", tptr->child_cnt[0], tptr->child_cnt[1]);
 			rc |= TREE_UNDERFLOW;
 		}
 		auto futl = tptr->children[0].verify(stack_cnt);

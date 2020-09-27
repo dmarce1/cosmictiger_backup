@@ -32,16 +32,13 @@ public:
 	bool operator==( const tree_client& other ) const {
 		return id == other.id;
 	}
-	hpx::future<void> destroy() const;
-	hpx::future<int> drift(int, int, float dt) const;
-	hpx::future<void> drift_into(int, bucket&&) const;
-	hpx::future<int> find_family(int, tree_client, tree_client, std::vector<family_check>) const;
-	hpx::future<std::array<family_check, NCHILD>> get_family_checks() const;
+	hpx::future<int> drift(int, int,tree_client, tree_client, float dt) const;
+	hpx::future<int> find_home(int, bucket&&) const;
 	hpx::future<bucket> get_parts() const;
-	hpx::future<std::uint64_t> grow(int, bucket&&) const;
+	hpx::future<int> grow(int, bucket&&) const;
 	hpx::future<tree_client> migrate(hpx::id_type) const;
 	hpx::future<int> load_balance(int, std::uint64_t) const;
-	hpx::future<int> prune(int) const;
+	hpx::future<std::uint64_t> prune(int) const;
 	hpx::future<int> verify(int) const;
 	template<class A>
 	void serialize(A &&arc, unsigned) {
@@ -50,17 +47,6 @@ public:
 	}
 };
 
-
-
-struct family_check {
-	box_id_type boxid;
-	tree_client node;
-	template<class A>
-	void serialize(A &&arc, unsigned) {
-		arc & boxid;
-		arc & node;
-	}
-};
 
 
 #endif /* COSMICTIGER_TREE_CLIENT_HPP_ */

@@ -8,6 +8,28 @@
 int hpx_main(int argc, char *argv[]) {
 	options opts;
 	opts.process_options(argc, argv);
+//	bucket test;
+//	for (int i = 0; i < 17; i++) {
+//		particle p;
+//		p.x[0] = (i+1)/ 1000.0;
+//		test.insert(p);
+////		printf("%e\n", double(p.x[0]));
+//	}
+//	int j = 0;
+//	for (auto i = test.begin(); i != test.end();) {
+//		printf( "%e\n", pos_to_double(i->x[0]) );
+//		if( j == 16) {
+//			i = test.remove(i);
+//		} else {
+//			 i++;
+//		}
+//		j++;
+//	}
+//	printf( "-------\n");
+//	for (auto i = test.begin(); i != test.end(); i++) {
+//		printf( "%e\n", pos_to_double(i->x[0]) );
+//	}
+
 	bucket parts;
 	for (int i = 0; i < opts.problem_size; i++) {
 		particle p;
@@ -16,24 +38,27 @@ int hpx_main(int argc, char *argv[]) {
 		p.out = 0;
 		p.step = 0;
 		p.group = 0;
-		p.dt = 0.0;
 		parts.insert(p);
 	}
 	printf("Bucket size = %i\n", parts.size());
 	auto root_id = hpx::new_ < tree > (hpx::find_here(), 1).get();
-	auto root = tree_client(std::move(root_id), hpx::async<tree::get_ptr_action>(root_id).get());
+	auto root = tree_client(std::move(root_id), hpx::async < tree::get_ptr_action > (root_id).get());
+	auto ts = timer();
 	printf("Growing\n");
 	auto count = root.grow(0, std::move(parts)).get();
-	printf("Counted %li parts\n", count);
+	printf("Counted %li parts %e s\n", count, timer() - ts);
 	printf("Grown\n");
-	auto ts = timer();
-	int rc = root.verify(0).get();
-	if (rc) {
-		printf("%s\n", tree_verification_error(rc).c_str());
-	}
-	printf("Tree traversal takes %e seconds\n", timer() - ts);
+	ts = timer();
+//	int rc = root.verify(0).get();
+//	if (rc) {
+//		printf("%s\n", tree_verification_error(rc).c_str());
+//	}
+//	printf("Tree traversal takes %e seconds\n", timer() - ts);
 	int step = 0;
-	root.drift(0, step++, 0.01).get();
+	ts = timer();
+	root.drift(0, step++, tree_client(), root, 0.01).get();
+//	root.prune(0).get();
+	printf("Drift takes %e seconds\n", timer() - ts);
 	return hpx::finalize();
 }
 
