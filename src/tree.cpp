@@ -7,11 +7,6 @@
 
 HPX_REGISTER_MINIMAL_COMPONENT_FACTORY(hpx::components::managed_component<tree>, tree);
 
-static std::stack<tree_mems*> stack;
-static mutex_type mtx;
-
-#define CHUNK_SIZE (512*1024)
-
 std::string tree_verification_error(int rc) {
 	std::string error = "";
 	if (rc & TREE_OVERFLOW) {
@@ -25,45 +20,30 @@ std::string tree_verification_error(int rc) {
 	}
 	return error;
 }
-tree_mems* tree_mems_alloc() {
-	std::lock_guard<mutex_type> lock(mtx);
-	if (stack.empty()) {
-		tree_mems *base = (tree_mems*) malloc(sizeof(tree_mems) * CHUNK_SIZE);
-		for (int i = 0; i < CHUNK_SIZE; i++) {
-			stack.push(base + i);
-		}
-	}
-	tree_mems *ptr = stack.top();
-	stack.pop();
-	return ptr;
-}
 
-void tree_mems_free(tree_mems *ptr) {
-	std::lock_guard<mutex_type> lock(mtx);
-	stack.push(ptr);
-}
 
 tree::tree() {
-	tptr = tree_mems_alloc();
+	tptr = new tree_mems;
 }
 
 tree::tree(box_id_type id) {
-	tptr = tree_mems_alloc();
+	tptr = new tree_mems;
 	tptr->boxid = id;
 	tptr->leaf = true;
 }
 
 tree::tree(const tree &other) {
+	tptr = new tree_mems;
 	*tptr = *(other.tptr);
 }
 
 tree::~tree() {
-	tree_mems_free(tptr);
+	delete tptr;
 }
 
 void tree::create_children() {
-	auto futl = hpx::new_ < tree > (hpx::find_here(), (tptr->boxid << 1) + 0);
-	auto futr = hpx::new_ < tree > (hpx::find_here(), (tptr->boxid << 1) + 1);
+	auto futl = hpx::new_ < tree > (hpx::find_here(), (tptr->boxid << box_id_type(1)));
+	auto futr = hpx::new_ < tree > (hpx::find_here(), (tptr->boxid <<  box_id_type(1)) +  box_id_type(1));
 	tptr->leaf = false;
 	auto id_left = futl.get();
 	auto id_right = futr.get();
@@ -125,8 +105,8 @@ int tree::find_home(int stack_cnt, bucket parts) {
 		bucket p_parts;
 		bucket l_parts;
 		bucket r_parts;
-		const auto boxl = box_id_to_range(tptr->boxid << 1);
-		const auto boxr = box_id_to_range((tptr->boxid << 1) + 1);
+		const auto boxl = box_id_to_range(tptr->boxid <<  box_id_type(1));
+		const auto boxr = box_id_to_range((tptr->boxid <<  box_id_type(1)) +  box_id_type(1));
 		while (parts.size()) {
 			auto &p = parts.front();
 			const auto x = pos_to_double(p.x);
@@ -207,6 +187,7 @@ std::uint64_t tree::grow(int stack_cnt, bucket &&parts) {
 		tptr->child_cnt[0] = futl.get();
 		tptr->child_cnt[1] = futr.get();
 	}
+//	printf("%x\n", tptr->boxid);
 	return size();
 }
 

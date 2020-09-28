@@ -236,4 +236,69 @@ public:
 	}
 };
 
+//struct bucket {
+//private:
+//	std::vector<particle> v;
+//public:
+//	inline bucket() {
+//	}
+//	inline ~bucket() {
+//	}
+//	inline void clear() {
+//		v.clear();
+//	}
+//	inline void insert(const particle &part) {
+//		v.push_back(part);
+//	}
+//	inline unsigned size() const {
+//		return v.size();
+//	}
+//	inline auto begin() {
+//		return v.begin();
+//	}
+//	inline auto end() {
+//		return v.end();
+//	}
+//	inline auto cbegin() const {
+//		return v.cbegin();
+//	}
+//	inline auto cend() const {
+//		return v.cend();
+//	}
+//	inline auto remove(std::vector<particle>::iterator iter) {
+//		*iter = v[v.size() - 1];
+//		v.resize(v.size() - 1);
+//		if( v.size() == 0 ) {
+//			v = decltype(v)();
+//		}
+//		return iter;
+//	}
+//	inline bucket& operator=(const bucket &other) {
+//		v = other.v;
+//		return *this;
+//	}
+//	inline bucket& operator=(bucket &&other) {
+//		v = std::move(other.v);
+//		return *this;
+//	}
+//	inline bucket(const bucket &other) {
+//		*this = other;
+//	}
+//	inline bucket(bucket &&other) {
+//		*this = std::move(other);
+//	}
+//	inline particle& front() {
+//		return *(begin());
+//	}
+//	HPX_SERIALIZATION_SPLIT_MEMBER();
+//	template<class A>
+//	void load(A &&arc, unsigned) {
+//		arc & v;
+//	}
+//	template<class A>
+//	void save(A &&arc, unsigned) const {
+//		arc & v;
+//	}
+//};
+
 #endif /* COSMICTIGER_BUCKET_HPP_ */
