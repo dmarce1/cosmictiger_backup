@@ -148,6 +148,18 @@ int tree::find_home(int stack_cnt, bucket parts) {
 	return 0;
 }
 
+int tree::destroy(int stack_cnt) {
+	if( !tptr->leaf ) {
+		auto futl = tptr->children[0].destroy(stack_cnt);
+		auto futr = tptr->children[1].destroy(stack_cnt);
+		futl.get();
+		tptr->children[0] = tree_client();
+		futr.get();
+		tptr->children[1] = tree_client();
+	}
+	return 0;
+}
+
 std::uint64_t tree::get_ptr() {
 	return reinterpret_cast<std::uint64_t>(this);
 }

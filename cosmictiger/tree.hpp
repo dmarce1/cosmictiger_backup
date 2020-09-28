@@ -26,6 +26,7 @@ public:
 	tree(const tree&);
 	~tree();
 	void create_children();
+	int destroy(int);
 	int drift(int, int, tree_client, tree_client, float dt);
 	int find_home(int, bucket);
 	bucket get_parts();
@@ -36,6 +37,7 @@ public:
 	std::uint64_t prune(int);
 	int verify(int) const;
 	std::size_t size() const;
+	/**/HPX_DEFINE_COMPONENT_ACTION(tree,destroy);
 	/**/HPX_DEFINE_COMPONENT_ACTION(tree,drift);
 	/**/HPX_DEFINE_COMPONENT_ACTION(tree,find_home);
 	/**/HPX_DEFINE_COMPONENT_ACTION(tree,grow);

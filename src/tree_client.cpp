@@ -109,6 +109,16 @@ hpx::future<tree_client> tree_client::migrate(hpx::id_type locality) const {
 	return hpx::async < tree::migrate_action > (id, std::move(locality));
 }
 
+hpx::future<int> tree_client::destroy(int stack_cnt) const {
+	if (hpx::get_colocation_id(id).get() != hpx::find_here()) {
+		return hpx::async < tree::destroy_action > (id, 0);
+	} else {
+		return thread_handler<int>([this](int stack_cnt) {
+			return reinterpret_cast<tree*>(ptr)->destroy(stack_cnt);
+		}, stack_cnt);
+	}
+
+}
 hpx::future<int> tree_client::drift(int stack_cnt, int step, tree_client parent, tree_client self, float dt) const {
 	if (hpx::get_colocation_id(id).get() != hpx::find_here()) {
 		return hpx::async < tree::drift_action > (id, 0, step, std::move(parent), std::move(self), dt);

@@ -32,6 +32,7 @@ public:
 	bool operator==( const tree_client& other ) const {
 		return id == other.id;
 	}
+	hpx::future<int> destroy(int) const;
 	hpx::future<int> drift(int, int,tree_client, tree_client, float dt) const;
 	hpx::future<int> find_home(int, bucket&&) const;
 	hpx::future<bucket> get_parts() const;
