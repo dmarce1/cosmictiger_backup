@@ -67,7 +67,7 @@ int tree::drift(int stack_cnt, int step, tree_client parent, tree_client self, f
 				x += v * dt;
 				i->x = double_to_pos(x);
 				i->step++;
-				if (!in_range(x, box)) {
+				if (!in_range(pos_to_double(i->x), box)) {
 					exit_parts.insert(*i);
 					i = tptr->parts.remove(i);
 				} else {
@@ -307,6 +307,10 @@ int tree::verify(int stack_cnt) const {
 		for (auto iter = tptr->parts.begin(); iter != tptr->parts.end(); iter++) {
 			const auto this_x = pos_to_double(iter->x);
 			if (!in_range(this_x, box)) {
+//				printf( "------\n");
+//				printf( "x   %.8e %.8e %.8e\n", this_x[0], this_x[1], this_x[2]);
+//				printf( "min %.8e %.8e %.8e\n", box.min[0], box.min[1], box.min[2]);
+//				printf( "max %.8e %.8e %.8e\n", box.max[0], box.max[1], box.max[2]);
 				rc |= TREE_INVALID;
 			}
 		}

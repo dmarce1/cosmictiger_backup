@@ -49,19 +49,17 @@ int hpx_main(int argc, char *argv[]) {
 	printf("Counted %li parts %e s\n", count, timer() - ts);
 	printf("Grown\n");
 	ts = timer();
-//	int rc = root.verify(0).get();
-//	if (rc) {
-//		printf("%s\n", tree_verification_error(rc).c_str());
-//	}
-//	printf("Tree traversal takes %e seconds\n", timer() - ts);
 	int step = 0;
 	ts = timer();
 	root.drift(0, step++, tree_client(), root, 0.01).get();
 	root.prune(0).get();
 	printf("Drift takes %e seconds\n", timer() - ts);
+	int rc = root.verify(0).get();
+	if (rc) {
+		printf("%s\n", tree_verification_error(rc).c_str());
+	}
+	printf("Tree traversal takes %e seconds\n", timer() - ts);
 	root.destroy(0).get();
-	root = tree_client();
-	printf( "exiting.1..\n");
 	return hpx::finalize();
 }
 
@@ -71,6 +69,6 @@ int main(int argc, char *argv[]) {
 	std::vector < std::string > cfg = { "hpx.commandline.allow_unknown=1" };
 
 	hpx::init(argc, argv, cfg);
-	printf( "exiting.2..\n");
+	printf("exiting.2..\n");
 }
 #endif

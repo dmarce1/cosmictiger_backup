@@ -6,7 +6,7 @@
 #include <limits>
 
 class position {
-	static constexpr double pos_max = double(std::numeric_limits < std::int32_t > ::max()) + 1.0;
+	static constexpr double pos_max = double(std::numeric_limits < std::uint32_t > ::max()) + 1.0;
 	static constexpr double pos_inv = 1.0 / pos_max;
 	std::int32_t i;
 public:DEFAULT_CLASS_MEMBERS(position)
