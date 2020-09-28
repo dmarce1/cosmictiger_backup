@@ -172,7 +172,7 @@ std::uint64_t tree::get_ptr() {
 	return reinterpret_cast<std::uint64_t>(this);
 }
 
-int tree::grow(int stack_cnt, bucket &&parts) {
+std::uint64_t tree::grow(int stack_cnt, bucket &&parts) {
 	if (tptr->leaf) {
 		if (parts.size() + tptr->parts.size() <= opts.bucket_size) {
 			while (parts.size()) {
@@ -204,10 +204,10 @@ int tree::grow(int stack_cnt, bucket &&parts) {
 		}
 		auto futl = tptr->children[0].grow(stack_cnt, std::move(parts_left));
 		auto futr = tptr->children[1].grow(stack_cnt, std::move(parts_right));
-		futl.get();
-		futr.get();
+		tptr->child_cnt[0] = futl.get();
+		tptr->child_cnt[1] = futr.get();
 	}
-	return 0;
+	return size();
 }
 
 bucket tree::get_parts() {
@@ -289,10 +289,10 @@ std::uint64_t tree::prune(int stack_cnt) {
 			}
 			tptr->leaf = true;
 		}
-	} else {
-		return size();
+	} else if (tptr->parts.size() > opts.bucket_size) {
+		grow(stack_cnt + 1, bucket());
 	}
-	return 0;
+	return size();
 }
 
 std::size_t tree::size() const {

@@ -57,7 +57,7 @@ int hpx_main(int argc, char *argv[]) {
 	int step = 0;
 	ts = timer();
 	root.drift(0, step++, tree_client(), root, 0.01).get();
-//	root.prune(0).get();
+	root.prune(0).get();
 	printf("Drift takes %e seconds\n", timer() - ts);
 	return hpx::finalize();
 }

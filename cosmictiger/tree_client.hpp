@@ -35,7 +35,7 @@ public:
 	hpx::future<int> drift(int, int,tree_client, tree_client, float dt) const;
 	hpx::future<int> find_home(int, bucket&&) const;
 	hpx::future<bucket> get_parts() const;
-	hpx::future<int> grow(int, bucket&&) const;
+	hpx::future<std::uint64_t> grow(int, bucket&&) const;
 	hpx::future<tree_client> migrate(hpx::id_type) const;
 	hpx::future<int> load_balance(int, std::uint64_t) const;
 	hpx::future<std::uint64_t> prune(int) const;

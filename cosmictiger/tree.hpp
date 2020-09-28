@@ -30,7 +30,7 @@ public:
 	int find_home(int, bucket);
 	bucket get_parts();
 	std::uint64_t get_ptr();
-	int grow(int, bucket&&);
+	std::uint64_t grow(int, bucket&&);
 	int load_balance(int, std::uint64_t);
 	tree_client migrate(hpx::id_type);
 	std::uint64_t prune(int);
