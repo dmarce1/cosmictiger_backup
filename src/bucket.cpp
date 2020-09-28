@@ -12,17 +12,53 @@
 
 #include <stack>
 
-static std::stack<cup*> stack;
+static std::stack<cup*> main_stack;
 static mutex_type mtx;
 
-#define CHUNK_SIZE (1024*1024)
+
+class cup_stack {
+	std::stack<cup*> stack;
+public:
+	bool empty() const {
+		return stack.empty();
+	}
+	void pop() {
+		stack.pop();
+	}
+	void push(cup* ptr) {
+		stack.push(ptr);
+	}
+	cup* top() {
+		return stack.top();
+	}
+	std::size_t size() const {
+		return stack.size();
+	}
+	~cup_stack() {
+		std::lock_guard<mutex_type> lock(mtx);
+		while( !empty()) {
+			main_stack.push(top());
+			pop();
+		}
+	}
+};
+
+static thread_local cup_stack stack;
+
+#define CHUNK_SIZE (1024)
 
 cup* bucket_cup_alloc() {
-	std::lock_guard < mutex_type > lock(mtx);
 	if (stack.empty()) {
-		auto *base = (cup*) malloc(sizeof(cup) * CHUNK_SIZE);
-		for (int i = 0; i < CHUNK_SIZE; i++) {
-			stack.push(base + i);
+		std::lock_guard<mutex_type> lock(mtx);
+		if( main_stack.size() < CHUNK_SIZE) {
+			auto *base = (cup*) malloc(sizeof(cup) * CHUNK_SIZE);
+			for (int i = 0; i < CHUNK_SIZE; i++) {
+				main_stack.push(base + i);
+			}
+		}
+		for( int i = 0; i < CHUNK_SIZE; i++) {
+			stack.push(main_stack.top());
+			main_stack.pop();
 		}
 	}
 	auto *ptr = stack.top();
@@ -31,6 +67,12 @@ cup* bucket_cup_alloc() {
 }
 
 void bucket_cup_free(cup *ptr) {
-	std::lock_guard < mutex_type > lock(mtx);
 	stack.push(ptr);
+	if (stack.size() >= 2*CHUNK_SIZE) {
+		std::lock_guard<mutex_type> lock(mtx);
+		for( int i = 0; i < CHUNK_SIZE; i++) {
+			main_stack.push(stack.top());
+			stack.pop();
+		}
+	}
 }

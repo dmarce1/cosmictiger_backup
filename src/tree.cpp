@@ -248,6 +248,7 @@ tree_client tree::migrate(hpx::id_type locality) {
 }
 
 std::uint64_t tree::prune(int stack_cnt) {
+	tptr->parent = tree_client();
 	if (!tptr->leaf) {
 		auto futl = tptr->children[0].prune(stack_cnt);
 		auto futr = tptr->children[1].prune(stack_cnt);
