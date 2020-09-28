@@ -25,9 +25,6 @@ std::string tree_verification_error(int rc) {
 	}
 	return error;
 }
-//
-//std::atomic<int> cnt(0);
-
 tree_mems* tree_mems_alloc() {
 	std::lock_guard<mutex_type> lock(mtx);
 	if (stack.empty()) {
@@ -38,23 +35,14 @@ tree_mems* tree_mems_alloc() {
 	}
 	tree_mems *ptr = stack.top();
 	stack.pop();
-//	cnt++;
-//	if( cnt % 100000 == 0 ) {
-//		printf( "%i\n", (int) cnt);
-//	}
-//
 	return ptr;
 }
 
 void tree_mems_free(tree_mems *ptr) {
 	std::lock_guard<mutex_type> lock(mtx);
 	stack.push(ptr);
-//	cnt--;
-//	if( cnt % 100000 == 0 ) {
-//		printf( "%i\n", (int) cnt);
-//	}
-
 }
+
 tree::tree() {
 	tptr = tree_mems_alloc();
 }
@@ -88,29 +76,28 @@ void tree::create_children() {
 int tree::drift(int stack_cnt, int step, tree_client parent, tree_client self, float dt) {
 	tptr->parent = parent;
 	if (tptr->leaf) {
+		std::unique_lock<mutex_type> lock(tptr->mtx);
 		bucket exit_parts;
-		{
-			std::lock_guard<mutex_type> lock(tptr->mtx);
-			const auto box = box_id_to_range(tptr->boxid);
-			auto i = tptr->parts.begin();
-			while (i != tptr->parts.end()) {
-				if (step % 2 == i->step) {
-					auto x = pos_to_double(i->x);
-					const auto v = i->v;
-					x += v * dt;
-					i->x = double_to_pos(x);
-					i->step++;
-					if (!in_range(x, box)) {
-						exit_parts.insert(*i);
-						i = tptr->parts.remove(i);
-					} else {
-						i++;
-					}
+		const auto box = box_id_to_range(tptr->boxid);
+		auto i = tptr->parts.begin();
+		while (i != tptr->parts.end()) {
+			if (step % 2 == i->step) {
+				auto x = pos_to_double(i->x);
+				const auto v = i->v;
+				x += v * dt;
+				i->x = double_to_pos(x);
+				i->step++;
+				if (!in_range(x, box)) {
+					exit_parts.insert(*i);
+					i = tptr->parts.remove(i);
 				} else {
 					i++;
 				}
+			} else {
+				i++;
 			}
 		}
+		lock.unlock();
 		if (exit_parts.size()) {
 			parent.find_home(stack_cnt, std::move(exit_parts)).get();
 		}
@@ -124,39 +111,16 @@ int tree::drift(int stack_cnt, int step, tree_client parent, tree_client self, f
 }
 
 int tree::find_home(int stack_cnt, bucket parts) {
+
 	const auto box = box_id_to_range(tptr->boxid);
+	std::unique_lock<mutex_type> lock(tptr->mtx);
 	if (tptr->leaf) {
-		std::lock_guard<mutex_type> lock(tptr->mtx);
 		while (parts.size()) {
 			assert(in_range(pos_to_double(parts.front().x), box));
 			tptr->parts.insert(parts.front());
 			parts.remove(parts.begin());
 		}
-		if( tptr->parts.size() > opts.bucket_size) {
-			create_children();
-			bucket parts_left;
-			bucket parts_right;
-			while (tptr->parts.size()) {
-				parts.insert(tptr->parts.front());
-				tptr->parts.remove(tptr->parts.begin());
-			}
-			range box = box_id_to_range(tptr->boxid);
-			const int dim = range_max_dim(box);
-			const double xmid = 0.5 * (box.max[dim] + box.min[dim]);
-			while (parts.size()) {
-				const auto &p = parts.front();
-				if (double(p.x[dim]) < xmid) {
-					parts_left.insert(p);
-				} else {
-					parts_right.insert(p);
-				}
-				parts.remove(parts.begin());
-			}
-			auto futl = tptr->children[0].grow(stack_cnt, std::move(parts_left));
-			auto futr = tptr->children[1].grow(stack_cnt, std::move(parts_right));
-			tptr->child_cnt[0] = futl.get();
-			tptr->child_cnt[1] = futr.get();
-		}
+		lock.unlock();
 	} else {
 		bucket p_parts;
 		bucket l_parts;
@@ -175,20 +139,24 @@ int tree::find_home(int stack_cnt, bucket parts) {
 			}
 			parts.remove(parts.begin());
 		}
+		lock.unlock();
 		hpx::future<int> pfut;
 		hpx::future<int> lfut;
 		hpx::future<int> rfut;
 		if (p_parts.size()) {
+			assert(tptr->parent != hpx::invalid_id);
 			pfut = tptr->parent.find_home(stack_cnt, std::move(p_parts));
 		} else {
 			pfut = hpx::make_ready_future(0);
 		}
 		if (l_parts.size()) {
+			assert(tptr->children[0] != hpx::invalid_id);
 			lfut = tptr->children[0].find_home(stack_cnt, std::move(l_parts));
 		} else {
 			lfut = hpx::make_ready_future(0);
 		}
 		if (r_parts.size()) {
+			assert(tptr->children[1] != hpx::invalid_id);
 			rfut = tptr->children[1].find_home(stack_cnt, std::move(r_parts));
 		} else {
 			rfut = hpx::make_ready_future(0);

@@ -18,6 +18,7 @@ struct tree_mems {
 	mutex_type mtx;
 	std::uint8_t leaf;
 
+
 	tree_mems& operator=(const tree_mems &other) {
 		parts = other.parts;
 		children = other.children;
