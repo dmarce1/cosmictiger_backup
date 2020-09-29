@@ -29,6 +29,9 @@ public:
 	operator hpx::id_type() const {
 		return id;
 	}
+	bool operator!=( const tree_client& other ) const {
+		return id != other.id;
+	}
 	bool operator==( const tree_client& other ) const {
 		return id == other.id;
 	}

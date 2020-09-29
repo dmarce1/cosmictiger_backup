@@ -8,49 +8,32 @@
 #include <cosmictiger/hpx.hpp>
 #include <cosmictiger/tree.hpp>
 
-#define MAX_STACK 8
+#define MAX_STACK 100
 
 static std::atomic<int> thread_cnt(0);
 static const int max_threads = 4 * std::thread::hardware_concurrency();
+static std::atomic<int> stack_threads(0);
 
-template<class T, class Function, class ... Args>
-hpx::future<T> thread_handler(const hpx::id_type &id, const hpx::id_type loc_id, int stack_cnt, Args &&... args) {
-	Function function;
-	hpx::future<T> future;
-	stack_cnt++;
-	if (hpx::find_here() != loc_id) {
-		future = hpx::async<Function>(id, 0, std::forward<Args>(args)...);
-	} else {
-		if (thread_cnt++ < max_threads) {
-			future = hpx::async<Function>(id, 0, std::forward<Args>(args)...).then([](decltype(future) f) {
-				thread_cnt--;
-				return f.get();
-			});
-		} else {
-			thread_cnt--;
-			if (stack_cnt >= MAX_STACK) {
-				future = hpx::make_ready_future(hpx::async<Function>(id, 0, std::forward<Args>(args)...).get());
-			} else {
-				future = hpx::make_ready_future(function(id, stack_cnt, std::forward<Args>(args)...));
-			}
-		}
-	}
-	return future;
-}
 template<class T, class Function, class ... Args>
 hpx::future<T> thread_handler(Function &&function, int stack_cnt, Args &&... args) {
 	hpx::future<T> future;
 	stack_cnt++;
 	if (thread_cnt++ < max_threads) {
-		future = hpx::async(std::move(function), 0, std::forward<Args>(args)...).then([](decltype(future) f) {
+		future = hpx::async([](Function &&function, Args &&... args) {
+			auto rc = function(0, std::forward<Args>(args)...);
 			thread_cnt--;
-			return f.get();
-		});
+			return rc;
+		}, std::move(function), std::forward<Args>(args)...);
 	} else {
 		thread_cnt--;
 		if (stack_cnt >= MAX_STACK) {
-//			printf( "stack thread\n");
-			future = hpx::make_ready_future(hpx::async(std::move(function), 0, std::forward<Args>(args)...).get());
+			stack_threads++;
+			future = hpx::make_ready_future(hpx::async([](Function &&function, Args &&... args) {
+				 auto rc = function(0, std::forward<Args>(args)...);
+				 stack_threads--;
+	//			 printf( "%i\n", (int) stack_threads);
+				 return rc;
+			}, std::move(function), std::forward<Args>(args)...).get());
 		} else {
 			future = hpx::make_ready_future(function(stack_cnt, std::forward<Args>(args)...));
 		}

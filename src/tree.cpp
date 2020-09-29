@@ -8,6 +8,29 @@
 
 HPX_REGISTER_MINIMAL_COMPONENT_FACTORY(hpx::components::managed_component<tree>, tree);
 
+
+using destroy_action_type = tree::destroy_action;
+using drift_action_type = tree::drift_action;
+using find_home_action_type = tree::find_home_action;
+using grow_action_type = tree::grow_action;
+using load_balance_action_type = tree::load_balance_action;
+using prune_action_type = tree::prune_action;
+using get_parts_action_type = tree::get_parts_action;
+using get_ptr_action_type = tree::get_ptr_action;
+using migrate_action_type = tree::migrate_action;
+using verify_action_type = tree::verify_action;
+
+HPX_REGISTER_ACTION (destroy_action_type);
+HPX_REGISTER_ACTION (drift_action_type);
+HPX_REGISTER_ACTION (find_home_action_type);
+HPX_REGISTER_ACTION (grow_action_type);
+HPX_REGISTER_ACTION (load_balance_action_type);
+HPX_REGISTER_ACTION (prune_action_type);
+HPX_REGISTER_ACTION (get_parts_action_type);
+HPX_REGISTER_ACTION (get_ptr_action_type);
+HPX_REGISTER_ACTION (migrate_action_type);
+HPX_REGISTER_ACTION (verify_action_type);
+
 std::string tree_verification_error(int rc) {
 	std::string error = "";
 	if (rc & TREE_OVERFLOW) {
@@ -125,19 +148,19 @@ int tree::find_home(int stack_cnt, bucket parts) {
 		hpx::future<int> lfut;
 		hpx::future<int> rfut;
 		if (p_parts.size()) {
-			assert(tptr->parent != hpx::invalid_id);
+			assert(tptr->parent != tree_client());
 			pfut = tptr->parent.find_home(stack_cnt, std::move(p_parts));
 		} else {
 			pfut = hpx::make_ready_future(0);
 		}
 		if (l_parts.size()) {
-			assert(tptr->children[0] != hpx::invalid_id);
+			assert(tptr->children[0] != tree_client());
 			lfut = tptr->children[0].find_home(stack_cnt, std::move(l_parts));
 		} else {
 			lfut = hpx::make_ready_future(0);
 		}
 		if (r_parts.size()) {
-			assert(tptr->children[1] != hpx::invalid_id);
+			assert(tptr->children[1] != tree_client());
 			rfut = tptr->children[1].find_home(stack_cnt, std::move(r_parts));
 		} else {
 			rfut = hpx::make_ready_future(0);
@@ -242,8 +265,8 @@ int tree::load_balance(int stack_cnt, std::uint64_t index) {
 		std::uint64_t il, ir;
 		const int child_level = msb(tptr->boxid);
 		if (child_level > min_level) {
-			il = index * localities.size() / opts.problem_size;
-			ir = (index + tptr->child_cnt[0]) * localities.size() / opts.problem_size;
+			il = index * std::uint64_t(localities.size()) / opts.problem_size;
+			ir = (index + tptr->child_cnt[0]) * std::uint64_t(localities.size()) / opts.problem_size;
 			il = hpx::get_locality_id();
 			ir = hpx::get_locality_id();
 		} else {
