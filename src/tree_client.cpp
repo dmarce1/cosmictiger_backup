@@ -108,11 +108,11 @@ hpx::future<int> tree_client::destroy(int stack_cnt) const {
 	}
 
 }
-hpx::future<int> tree_client::drift(int stack_cnt, int step, tree_client parent, tree_client self, float dt) const {
+hpx::future<std::uint64_t> tree_client::drift(int stack_cnt, int step, tree_client parent, tree_client self, float dt) const {
 	if (hpx::get_colocation_id(id).get() != hpx::find_here()) {
 		return hpx::async < tree::drift_action > (id, 0, step, std::move(parent), std::move(self), dt);
 	} else {
-		return thread_handler<int>([this, parent, self, dt, step](int stack_cnt) {
+		return thread_handler<std::uint64_t>([this, parent, self, dt, step](int stack_cnt) {
 			return reinterpret_cast<tree*>(ptr)->drift(stack_cnt, step, std::move(parent), std::move(self), dt);
 		}, stack_cnt);
 	}

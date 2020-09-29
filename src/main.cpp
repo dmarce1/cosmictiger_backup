@@ -5,6 +5,8 @@
 #include <cosmictiger/timer.hpp>
 #include <cosmictiger/tree.hpp>
 
+#include <ctime>
+
 int hpx_main(int argc, char *argv[]) {
 	options opts;
 	opts.process_options(argc, argv);
@@ -29,12 +31,12 @@ int hpx_main(int argc, char *argv[]) {
 //	for (auto i = test.begin(); i != test.end(); i++) {
 //		printf( "%e\n", pos_to_double(i->x[0]) );
 //	}
-
+	srand(time(NULL));
 	bucket parts;
 	for (int i = 0; i < opts.problem_size; i++) {
 		particle p;
 		p.x = double_to_pos(rand_unit_vect());
-		p.v = rand_unit_vect() * 1.0e-3;
+		p.v = rand_unit_vect() * std::pow(opts.problem_size/opts.bucket_size,-1.0/3.0) / 8.0;
 		p.out = 0;
 		p.step = 0;
 		p.group = 0;
@@ -48,27 +50,32 @@ int hpx_main(int argc, char *argv[]) {
 	root.grow(0, bucket()).get();
 	printf("Grown\n");
 	root.load_balance(0, 0).get();
-	printf( "Balanced\n");
+	printf("Balanced\n");
 	auto count = root.grow(0, std::move(parts)).get();
 	printf("Counted %li parts %e s\n", count, timer() - ts);
 	printf("Grown\n");
 	root.load_balance(0, 0).get();
-	printf( "Balanced\n");
+	printf("Balanced\n");
 	ts = timer();
 	int step = 0;
 	ts = timer();
-	printf( "Drifting\n");
-	root.drift(0, step++, tree_client(), root, 0.01).get();
-	printf( "Pruning\n");
+	printf("Drifting\n");
+	std::uint64_t cnt = root.drift(0, step++, tree_client(), root, 0.01).get();
+	printf("Pruning\n");
 	root.prune(0).get();
-	printf("Drift takes %e seconds\n", timer() - ts);
+	double dtime = timer() - ts;
+	double pct_drift = double(cnt) / opts.problem_size * 100;
+	printf("Drift takes %e seconds %f%% drifted\n", dtime, pct_drift);
 	ts = timer();
 	int rc = root.verify(0).get();
 	if (rc) {
 		printf("%s\n", tree_verification_error(rc).c_str());
 	}
-	printf("Tree traversal takes %e seconds\n", timer() - ts);
+	double traverse = timer() - ts;
+	printf("Tree traversal takes %e seconds\n", traverse);
 	root.destroy(0).get();
+	FILE* fp = fopen( "data.txt", "at");
+	fprintf( fp, "%li %e %e %e\n", opts.problem_size, traverse, dtime, pct_drift );
 	return hpx::finalize();
 }
 

@@ -93,9 +93,11 @@ void tree::create_children() {
 	tptr->children[1] = tree_client(std::move(id_right), fptrr.get());
 }
 
-int tree::drift(int stack_cnt, int step, tree_client parent, tree_client self, float dt) {
+std::uint64_t tree::drift(int stack_cnt, int step, tree_client parent, tree_client self, float dt) {
 	assert(tptr->boxid);
 	tptr->parent = parent;
+	std: ;
+	uint64_t drifted = 0;
 	if (tptr->leaf) {
 		std::unique_lock<mutex_type> lock(tptr->mtx);
 		bucket exit_parts;
@@ -110,6 +112,7 @@ int tree::drift(int stack_cnt, int step, tree_client parent, tree_client self, f
 				i->step++;
 				if (!in_range(pos_to_double(i->x), box)) {
 					exit_parts.insert(*i);
+					drifted++;
 					i = tptr->parts.remove(i);
 				} else {
 					i++;
@@ -125,10 +128,10 @@ int tree::drift(int stack_cnt, int step, tree_client parent, tree_client self, f
 	} else {
 		auto futl = tptr->children[0].drift(stack_cnt, step, self, tptr->children[0], dt);
 		auto futr = tptr->children[1].drift(stack_cnt, step, self, tptr->children[1], dt);
-		futl.get();
-		futr.get();
+		drifted += futl.get();
+		drifted += futr.get();
 	}
-	return 0;
+	return drifted;
 }
 
 int tree::find_home(int stack_cnt, bucket parts) {
@@ -148,15 +151,17 @@ int tree::find_home(int stack_cnt, bucket parts) {
 		bucket r_parts;
 		const auto boxl = box_id_to_range(tptr->boxid << box_id_type(1));
 		const auto boxr = box_id_to_range((tptr->boxid << box_id_type(1)) + box_id_type(1));
+		const auto dim = range_max_dim(box);
+		const auto midx = 0.5 * (box.min[dim] + box.max[dim]);
 		while (parts.size()) {
 			auto &p = parts.front();
 			const auto x = pos_to_double(p.x);
-			if (in_range(x, boxl)) {
-				l_parts.insert(p);
-			} else if (in_range(x, boxr)) {
+			if (!in_range(x, box)) {
+				p_parts.insert(p);
+			} else if (x[dim] >= midx) {
 				r_parts.insert(p);
 			} else {
-				p_parts.insert(p);
+				l_parts.insert(p);
 			}
 			parts.remove(parts.begin());
 		}

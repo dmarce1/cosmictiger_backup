@@ -29,7 +29,7 @@ public:
 	tree_dir build_tree_dir(tree_client) const;
 	void create_children();
 	int destroy(int);
-	int drift(int, int, tree_client, tree_client, float dt);
+	std::uint64_t drift(int, int, tree_client, tree_client, float dt);
 	int find_home(int, bucket);
 	bucket get_parts();
 	std::uint64_t get_ptr();
