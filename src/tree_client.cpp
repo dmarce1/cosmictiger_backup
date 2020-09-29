@@ -58,12 +58,12 @@ hpx::future<T> thread_handler(Function &&function, int stack_cnt, Args &&... arg
 	return future;
 }
 
-tree_client::tree_client(hpx::id_type &&myid, tree *local_ptr) {
+tree_client::tree_client(hpx::id_type myid, tree *local_ptr) {
 	ptr = reinterpret_cast<std::uint64_t>(local_ptr);
 	id = std::move(myid);
 }
 
-tree_client::tree_client(hpx::id_type &&myid, std::uint64_t local_ptr) {
+tree_client::tree_client(hpx::id_type myid, std::uint64_t local_ptr) {
 	ptr = local_ptr;
 	id = std::move(myid);
 }

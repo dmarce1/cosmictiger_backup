@@ -57,7 +57,7 @@ int tree::drift(int stack_cnt, int step, tree_client parent, tree_client self, f
 	assert(tptr->boxid);
 	tptr->parent = parent;
 	if (tptr->leaf) {
-		std::unique_lock < mutex_type > lock(tptr->mtx);
+		std::unique_lock<mutex_type> lock(tptr->mtx);
 		bucket exit_parts;
 		const auto box = box_id_to_range(tptr->boxid);
 		auto i = tptr->parts.begin();
@@ -94,7 +94,7 @@ int tree::drift(int stack_cnt, int step, tree_client parent, tree_client self, f
 int tree::find_home(int stack_cnt, bucket parts) {
 
 	const auto box = box_id_to_range(tptr->boxid);
-	std::unique_lock < mutex_type > lock(tptr->mtx);
+	std::unique_lock<mutex_type> lock(tptr->mtx);
 	if (tptr->leaf) {
 		while (parts.size()) {
 			assert(in_range(pos_to_double(parts.front().x), box));
@@ -281,7 +281,8 @@ int tree::load_balance(int stack_cnt, std::uint64_t index) {
 
 tree_client tree::migrate(hpx::id_type locality) {
 	auto new_ptr = hpx::new_ < tree > (locality, *this);
-	return tree_client(new_ptr.get(), this);
+	auto new_id = new_ptr.get();
+	return tree_client(new_id, hpx::async < get_ptr_action > (new_id).get());
 
 }
 

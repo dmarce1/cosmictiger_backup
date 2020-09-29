@@ -24,8 +24,8 @@ public:
 		id = hpx::invalid_id;
 		ptr = 0;
 	}
-	tree_client(hpx::id_type &&myid, tree* local_ptr);
-	tree_client(hpx::id_type &&myid, std::uint64_t local_ptr);
+	tree_client(hpx::id_type myid, tree* local_ptr);
+	tree_client(hpx::id_type myid, std::uint64_t local_ptr);
 	operator hpx::id_type() const {
 		return id;
 	}

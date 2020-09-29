@@ -223,7 +223,7 @@ public:
 		particle p;
 		int this_sz;
 		arc & this_sz;
-		printf( "load %i\n", this_sz);
+	//	printf( "load %i\n", this_sz);
 		for (int i = 0; i < this_sz; i++) {
 			arc & p;
 			insert(p);
@@ -231,7 +231,7 @@ public:
 	}
 	template<class A>
 	void save(A &&arc, unsigned) const {
-		printf( "save %i\n", sz);
+//		printf( "save %i\n", sz);
 		arc & sz;
 		for (auto iter = start; iter != stop; iter++) {
 			arc & *iter;
