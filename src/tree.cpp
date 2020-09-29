@@ -1,6 +1,7 @@
 #include <cosmictiger/defs.hpp>
 #include <cosmictiger/util.hpp>
 #include <cosmictiger/tree.hpp>
+#include <cosmictiger/tree_dir.hpp>
 
 #include <atomic>
 #include <stack>
@@ -8,7 +9,7 @@
 
 HPX_REGISTER_MINIMAL_COMPONENT_FACTORY(hpx::components::managed_component<tree>, tree);
 
-
+using build_tree_dir_action_type = tree::build_tree_dir_action;
 using destroy_action_type = tree::destroy_action;
 using drift_action_type = tree::drift_action;
 using find_home_action_type = tree::find_home_action;
@@ -20,6 +21,7 @@ using get_ptr_action_type = tree::get_ptr_action;
 using migrate_action_type = tree::migrate_action;
 using verify_action_type = tree::verify_action;
 
+HPX_REGISTER_ACTION (build_tree_dir_action_type);
 HPX_REGISTER_ACTION (destroy_action_type);
 HPX_REGISTER_ACTION (drift_action_type);
 HPX_REGISTER_ACTION (find_home_action_type);
@@ -62,6 +64,21 @@ tree::tree(const tree &other) {
 
 tree::~tree() {
 	delete tptr;
+}
+
+tree_dir tree::build_tree_dir(tree_client self) const {
+	const int min_level = msb(hpx_localities().size()) - 1;
+	const int my_level = msb(tptr->boxid) - 1;
+	if (my_level == min_level) {
+		tree_dir dir;
+		dir.add_tree_client(self, tptr->boxid);
+		return dir;
+	} else {
+		auto futl = hpx::async < build_tree_dir_action > (tptr->children[0].get_id(), tptr->children[0]);
+		auto futr = hpx::async < build_tree_dir_action > (tptr->children[1].get_id(), tptr->children[1]);
+		tree_dir left = futl.get();
+		return left.merge(futr.get());
+	}
 }
 
 void tree::create_children() {

@@ -10,6 +10,7 @@
 class tree_mems;
 class family_check;
 class tree_client;
+class tree_dir;
 
 #define TREE_OVERFLOW (0x1)
 #define TREE_UNDERFLOW (0x2)
@@ -25,6 +26,7 @@ public:
 	tree(box_id_type id);
 	tree(const tree&);
 	~tree();
+	tree_dir build_tree_dir(tree_client) const;
 	void create_children();
 	int destroy(int);
 	int drift(int, int, tree_client, tree_client, float dt);
@@ -37,6 +39,7 @@ public:
 	std::uint64_t prune(int);
 	int verify(int) const;
 	std::size_t size() const;
+	/**/HPX_DEFINE_COMPONENT_ACTION(tree,build_tree_dir);
 	/**/HPX_DEFINE_COMPONENT_ACTION(tree,destroy);
 	/**/HPX_DEFINE_COMPONENT_ACTION(tree,drift);
 	/**/HPX_DEFINE_COMPONENT_ACTION(tree,find_home);
