@@ -41,6 +41,9 @@ public:
 	hpx::future<int> load_balance(int, std::uint64_t) const;
 	hpx::future<std::uint64_t> prune(int) const;
 	hpx::future<int> verify(int) const;
+	bool local() const {
+		return hpx::get_colocation_id(id).get() == hpx::find_here();
+	}
 	template<class A>
 	void serialize(A &&arc, unsigned) {
 		arc & id;

@@ -57,9 +57,12 @@ int hpx_main(int argc, char *argv[]) {
 	ts = timer();
 	int step = 0;
 	ts = timer();
+	printf( "Drifting\n");
 	root.drift(0, step++, tree_client(), root, 0.01).get();
+	printf( "Pruning\n");
 	root.prune(0).get();
 	printf("Drift takes %e seconds\n", timer() - ts);
+	ts = timer();
 	int rc = root.verify(0).get();
 	if (rc) {
 		printf("%s\n", tree_verification_error(rc).c_str());

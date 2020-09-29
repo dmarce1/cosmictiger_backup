@@ -31,6 +31,7 @@ struct tree_mems {
 
 	template<class A>
 	void serialize(A &&arc, unsigned) {
+	//	printf( "Serialize\n");
 		arc & parts;
 		arc & children;
 		arc & parent;

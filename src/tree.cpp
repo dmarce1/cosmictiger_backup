@@ -56,7 +56,7 @@ void tree::create_children() {
 int tree::drift(int stack_cnt, int step, tree_client parent, tree_client self, float dt) {
 	tptr->parent = parent;
 	if (tptr->leaf) {
-		std::unique_lock<mutex_type> lock(tptr->mtx);
+		std::unique_lock < mutex_type > lock(tptr->mtx);
 		bucket exit_parts;
 		const auto box = box_id_to_range(tptr->boxid);
 		auto i = tptr->parts.begin();
@@ -93,7 +93,7 @@ int tree::drift(int stack_cnt, int step, tree_client parent, tree_client self, f
 int tree::find_home(int stack_cnt, bucket parts) {
 
 	const auto box = box_id_to_range(tptr->boxid);
-	std::unique_lock<mutex_type> lock(tptr->mtx);
+	std::unique_lock < mutex_type > lock(tptr->mtx);
 	if (tptr->leaf) {
 		while (parts.size()) {
 			assert(in_range(pos_to_double(parts.front().x), box));
@@ -196,6 +196,12 @@ std::uint64_t tree::grow(int stack_cnt, bucket &&parts) {
 			}
 			parts.remove(parts.begin());
 		}
+//		if (!tptr->children[0].local()) {
+//			printf("Sending %i left\n", parts_left.size());
+//		}
+//		if (!tptr->children[1].local()) {
+//			printf("Sending %i right\n", parts_right.size());
+//		}
 		auto futl = tptr->children[0].grow(stack_cnt, std::move(parts_left));
 		auto futr = tptr->children[1].grow(stack_cnt, std::move(parts_right));
 		tptr->child_cnt[0] = futl.get();
@@ -237,16 +243,19 @@ int tree::load_balance(int stack_cnt, std::uint64_t index) {
 		if (child_level > min_level) {
 			il = index * localities.size() / opts.problem_size;
 			ir = (index + tptr->child_cnt[0]) * localities.size() / opts.problem_size;
+			il = hpx::get_locality_id();
+			ir = hpx::get_locality_id();
 		} else {
 			const auto total_nodes = (1 << child_level);
 			const auto boxl = tptr->boxid << box_id_type(1);
 			const auto boxr = (tptr->boxid << box_id_type(1)) + box_id_type(1);
 			il = (boxl - total_nodes) * localities.size() / total_nodes;
 			ir = (boxr - total_nodes) * localities.size() / total_nodes;
-//			printf( "%i\n", total_nodes);
-//			printf("%x %i\n", tptr->boxid << box_id_type(1), il);
-//			printf("%x %i\n", (tptr->boxid << box_id_type(1)) + box_id_type(1), ir);
 		}
+		assert(il >= 0);
+		assert(il < localities.size());
+		assert(ir >= 0);
+		assert(ir < localities.size());
 		hpx::future<tree_client> newl;
 		hpx::future<tree_client> newr;
 		if (il != hpx::get_locality_id()) {

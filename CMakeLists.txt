@@ -33,6 +33,7 @@ set(cosmictiger_source_files
 	src/range.cpp
 	src/tree.cpp
 	src/tree_client.cpp
+	src/tree_dir.cpp
 )
 
 
@@ -48,6 +49,7 @@ set(cosmictiger_header_files
 	cosmictiger/range.hpp
 	cosmictiger/timer.hpp
 	cosmictiger/tree.hpp
+	cosmictiger/tree_dir.hpp
 	cosmictiger/tree_client.hpp
 	cosmictiger/tree_mems.hpp
 	cosmictiger/util.hpp
