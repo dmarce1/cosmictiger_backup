@@ -80,14 +80,6 @@ range shift_range(const range &r_, const vect<double> &v) {
 	return r;
 }
 
-bool in_range(const vect<double> &x, const range &r) {
-	for (int dim = 0; dim < NDIM; dim++) {
-		if (x[dim] < r.min[dim] || x[dim] > r.max[dim]) {
-			return false;
-		}
-	}
-	return true;
-}
 
 vect<double> range_span(const range &r) {
 	vect<double> s;

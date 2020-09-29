@@ -45,5 +45,14 @@ range null_range();
 bool operator==(const range&, const range&);
 bool operator!=(const range&, const range&);
 
+
+inline bool in_range(const vect<double> &x, const range &r) {
+	for (int dim = 0; dim < NDIM; dim++) {
+		if (x[dim] < r.min[dim] || x[dim] > r.max[dim]) {
+			return false;
+		}
+	}
+	return true;
+}
 #endif /* MATH_HPP_ */
 
