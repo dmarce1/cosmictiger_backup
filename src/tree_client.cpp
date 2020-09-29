@@ -92,7 +92,13 @@ hpx::future<std::uint64_t> tree_client::grow(int stack_cnt, bucket &&parts) cons
 }
 
 hpx::future<int> tree_client::load_balance(int stack_cnt, std::uint64_t cnt) const {
-	return thread_handler<int, tree::load_balance_action>(id, hpx::get_colocation_id(id).get(), stack_cnt, cnt);
+	if (hpx::get_colocation_id(id).get() != hpx::find_here()) {
+		return hpx::async < tree::load_balance_action > (id, 0, cnt);
+	} else {
+		return thread_handler<int>([this, cnt](int stack_cnt) {
+			return reinterpret_cast<tree*>(ptr)->load_balance(stack_cnt, cnt);
+		}, stack_cnt);
+	}
 }
 
 hpx::future<int> tree_client::verify(int stack_cnt) const {

@@ -45,9 +45,15 @@ int hpx_main(int argc, char *argv[]) {
 	auto root = tree_client(std::move(root_id), hpx::async < tree::get_ptr_action > (root_id).get());
 	auto ts = timer();
 	printf("Growing\n");
+	root.grow(0, bucket()).get();
+	printf("Grown\n");
+	root.load_balance(0, 0).get();
+	printf( "Balanced\n");
 	auto count = root.grow(0, std::move(parts)).get();
 	printf("Counted %li parts %e s\n", count, timer() - ts);
 	printf("Grown\n");
+	root.load_balance(0, 0).get();
+	printf( "Balanced\n");
 	ts = timer();
 	int step = 0;
 	ts = timer();

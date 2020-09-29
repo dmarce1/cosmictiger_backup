@@ -50,6 +50,7 @@ set(cosmictiger_header_files
 	cosmictiger/tree.hpp
 	cosmictiger/tree_client.hpp
 	cosmictiger/tree_mems.hpp
+	cosmictiger/util.hpp
 	cosmictiger/vect.hpp
 )
 

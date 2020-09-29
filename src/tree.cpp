@@ -1,4 +1,5 @@
 #include <cosmictiger/defs.hpp>
+#include <cosmictiger/util.hpp>
 #include <cosmictiger/tree.hpp>
 
 #include <atomic>
@@ -21,7 +22,6 @@ std::string tree_verification_error(int rc) {
 	return error;
 }
 
-
 tree::tree() {
 	tptr = new tree_mems;
 }
@@ -43,7 +43,7 @@ tree::~tree() {
 
 void tree::create_children() {
 	auto futl = hpx::new_ < tree > (hpx::find_here(), (tptr->boxid << box_id_type(1)));
-	auto futr = hpx::new_ < tree > (hpx::find_here(), (tptr->boxid <<  box_id_type(1)) +  box_id_type(1));
+	auto futr = hpx::new_ < tree > (hpx::find_here(), (tptr->boxid << box_id_type(1)) + box_id_type(1));
 	tptr->leaf = false;
 	auto id_left = futl.get();
 	auto id_right = futr.get();
@@ -105,8 +105,8 @@ int tree::find_home(int stack_cnt, bucket parts) {
 		bucket p_parts;
 		bucket l_parts;
 		bucket r_parts;
-		const auto boxl = box_id_to_range(tptr->boxid <<  box_id_type(1));
-		const auto boxr = box_id_to_range((tptr->boxid <<  box_id_type(1)) +  box_id_type(1));
+		const auto boxl = box_id_to_range(tptr->boxid << box_id_type(1));
+		const auto boxr = box_id_to_range((tptr->boxid << box_id_type(1)) + box_id_type(1));
 		while (parts.size()) {
 			auto &p = parts.front();
 			const auto x = pos_to_double(p.x);
@@ -149,7 +149,7 @@ int tree::find_home(int stack_cnt, bucket parts) {
 }
 
 int tree::destroy(int stack_cnt) {
-	if( !tptr->leaf ) {
+	if (!tptr->leaf) {
 		auto futl = tptr->children[0].destroy(stack_cnt);
 		auto futr = tptr->children[1].destroy(stack_cnt);
 		futl.get();
@@ -165,14 +165,16 @@ std::uint64_t tree::get_ptr() {
 }
 
 std::uint64_t tree::grow(int stack_cnt, bucket &&parts) {
+	const int min_level = msb(hpx_localities().size()) - 1;
+	const int my_level = msb(tptr->boxid) - 1;
 	if (tptr->leaf) {
-		if (parts.size() + tptr->parts.size() <= opts.bucket_size) {
+		if (my_level < min_level || parts.size() + tptr->parts.size() > opts.bucket_size) {
+			create_children();
+		} else {
 			while (parts.size()) {
 				tptr->parts.insert(parts.front());
 				parts.remove(parts.begin());
 			}
-		} else {
-			create_children();
 		}
 	}
 	if (!tptr->leaf) {
@@ -229,10 +231,23 @@ bucket tree::get_parts() {
 int tree::load_balance(int stack_cnt, std::uint64_t index) {
 	if (!tptr->leaf) {
 		const auto &localities = hpx_localities();
-		const std::uint64_t il = index * opts.problem_size / localities.size();
-		const std::uint64_t ir = (index + tptr->child_cnt[0]) * opts.problem_size / localities.size();
+		const int min_level = msb(localities.size()) - 1;
+		std::uint64_t il, ir;
+		const int child_level = msb(tptr->boxid);
+		printf("%i\n", tptr->child_cnt[0]);
+		if (child_level > min_level) {
+			il = index * localities.size() / opts.problem_size;
+			ir = (index + tptr->child_cnt[0]) * localities.size() / opts.problem_size;
+		} else {
+			const auto total_nodes = (1 << min_level);
+			const auto boxl = tptr->boxid << box_id_type(1);
+			const auto boxr = (tptr->boxid << box_id_type(1)) + box_id_type(1);
+			il = (boxl - total_nodes) * localities.size() / total_nodes;
+			ir = (boxr - total_nodes) * localities.size() / total_nodes;
+		}
 		hpx::future<tree_client> newl;
 		hpx::future<tree_client> newr;
+		printf("%i %i\n", il, ir);
 		if (il != hpx::get_locality_id()) {
 			newl = tptr->children[0].migrate(localities[il]);
 		}
@@ -298,6 +313,8 @@ std::size_t tree::size() const {
 }
 
 int tree::verify(int stack_cnt) const {
+	const int min_level = msb(hpx_localities().size()) - 1;
+	const int my_level = msb(tptr->boxid) - 1;
 	int rc = 0;
 	if (tptr->leaf) {
 		if (size() > opts.bucket_size) {
@@ -307,15 +324,11 @@ int tree::verify(int stack_cnt) const {
 		for (auto iter = tptr->parts.begin(); iter != tptr->parts.end(); iter++) {
 			const auto this_x = pos_to_double(iter->x);
 			if (!in_range(this_x, box)) {
-//				printf( "------\n");
-//				printf( "x   %.8e %.8e %.8e\n", this_x[0], this_x[1], this_x[2]);
-//				printf( "min %.8e %.8e %.8e\n", box.min[0], box.min[1], box.min[2]);
-//				printf( "max %.8e %.8e %.8e\n", box.max[0], box.max[1], box.max[2]);
 				rc |= TREE_INVALID;
 			}
 		}
 	} else {
-		if (size() <= opts.bucket_size) {
+		if (my_level > min_level && size() <= opts.bucket_size) {
 			rc |= TREE_UNDERFLOW;
 		}
 		auto futl = tptr->children[0].verify(stack_cnt);

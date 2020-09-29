@@ -22,9 +22,10 @@ struct range {
 	}
 };
 
-using box_id_type = unsigned __int128;
+using box_id_type = std::uint64_t;
 
 range box_id_to_range(box_id_type id);
+int box_id_to_level(box_id_type id);
 
 int range_max_dim(const range& r );
 int range_sibling_index(const range &r1, const range &r2);

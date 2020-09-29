@@ -6,6 +6,7 @@
  */
 
 #include <cosmictiger/range.hpp>
+#include <cosmictiger/util.hpp>
 
 vect<double> range_center(const range &r) {
 	vect<double> c;
@@ -160,6 +161,10 @@ bool operator==(const range &a, const range &b) {
 
 bool operator!=(const range &a, const range &b) {
 	return !(a == b);
+}
+
+int box_id_to_level(box_id_type id) {
+	return msb(id) - 1;
 }
 
 range box_id_to_range(box_id_type id) {

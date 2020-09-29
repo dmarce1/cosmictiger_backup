@@ -9,12 +9,10 @@
 #include <cosmictiger/bucket.hpp>
 #include <cosmictiger/hpx.hpp>
 
-
 #include <stack>
 
 static std::stack<cup*> main_stack;
-static mutex_type mtx;
-
+static std::atomic<int> lock(0);
 
 class cup_stack {
 	std::stack<cup*> stack;
@@ -25,7 +23,7 @@ public:
 	void pop() {
 		stack.pop();
 	}
-	void push(cup* ptr) {
+	void push(cup *ptr) {
 		stack.push(ptr);
 	}
 	cup* top() {
@@ -35,11 +33,14 @@ public:
 		return stack.size();
 	}
 	~cup_stack() {
-		std::lock_guard<mutex_type> lock(mtx);
-		while( !empty()) {
+		while (lock++ != 0) {
+			lock--;
+		}
+		while (!empty()) {
 			main_stack.push(top());
 			pop();
 		}
+		lock--;
 	}
 };
 
@@ -49,17 +50,20 @@ static thread_local cup_stack stack;
 
 cup* bucket_cup_alloc() {
 	if (stack.empty()) {
-		std::lock_guard<mutex_type> lock(mtx);
-		if( main_stack.size() < CHUNK_SIZE) {
+		while (lock++ != 0) {
+			lock--;
+		}
+		if (main_stack.size() < CHUNK_SIZE) {
 			auto *base = (cup*) malloc(sizeof(cup) * CHUNK_SIZE);
 			for (int i = 0; i < CHUNK_SIZE; i++) {
 				main_stack.push(base + i);
 			}
 		}
-		for( int i = 0; i < CHUNK_SIZE; i++) {
+		for (int i = 0; i < CHUNK_SIZE; i++) {
 			stack.push(main_stack.top());
 			main_stack.pop();
 		}
+		lock--;
 	}
 	auto *ptr = stack.top();
 	stack.pop();
@@ -68,11 +72,14 @@ cup* bucket_cup_alloc() {
 
 void bucket_cup_free(cup *ptr) {
 	stack.push(ptr);
-	if (stack.size() >= 2*CHUNK_SIZE) {
-		std::lock_guard<mutex_type> lock(mtx);
-		for( int i = 0; i < CHUNK_SIZE; i++) {
+	if (stack.size() >= 2 * CHUNK_SIZE) {
+		while (lock++ != 0) {
+			lock--;
+		}
+		for (int i = 0; i < CHUNK_SIZE; i++) {
 			main_stack.push(stack.top());
 			stack.pop();
 		}
+		lock--;
 	}
 }
