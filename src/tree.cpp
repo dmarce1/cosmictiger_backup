@@ -54,6 +54,7 @@ void tree::create_children() {
 }
 
 int tree::drift(int stack_cnt, int step, tree_client parent, tree_client self, float dt) {
+	assert(tptr->boxid);
 	tptr->parent = parent;
 	if (tptr->leaf) {
 		std::unique_lock < mutex_type > lock(tptr->mtx);
@@ -270,8 +271,8 @@ int tree::load_balance(int stack_cnt, std::uint64_t index) {
 		if (newr.valid()) {
 			tptr->children[1] = newr.get();
 		}
-		auto futl = tptr->children[0].load_balance(stack_cnt, il);
-		auto futr = tptr->children[1].load_balance(stack_cnt, ir);
+		auto futl = tptr->children[0].load_balance(stack_cnt, index);
+		auto futr = tptr->children[1].load_balance(stack_cnt, index + tptr->child_cnt[0]);
 		futl.get();
 		futr.get();
 	}
