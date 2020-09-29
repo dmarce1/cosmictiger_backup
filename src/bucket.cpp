@@ -10,12 +10,13 @@
 #include <cosmictiger/hpx.hpp>
 
 #include <stack>
+#include <vector>
 
-static std::stack<cup*> main_stack;
+static std::stack<cup*, std::vector<cup*>> main_stack;
 static std::atomic<int> lock(0);
 
 class cup_stack {
-	std::stack<cup*> stack;
+	std::stack<cup*, std::vector<cup*>> stack;
 public:
 	bool empty() const {
 		return stack.empty();
