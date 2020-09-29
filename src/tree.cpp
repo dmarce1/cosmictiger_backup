@@ -234,20 +234,21 @@ int tree::load_balance(int stack_cnt, std::uint64_t index) {
 		const int min_level = msb(localities.size()) - 1;
 		std::uint64_t il, ir;
 		const int child_level = msb(tptr->boxid);
-		printf("%i\n", tptr->child_cnt[0]);
 		if (child_level > min_level) {
 			il = index * localities.size() / opts.problem_size;
 			ir = (index + tptr->child_cnt[0]) * localities.size() / opts.problem_size;
 		} else {
-			const auto total_nodes = (1 << min_level);
+			const auto total_nodes = (1 << child_level);
 			const auto boxl = tptr->boxid << box_id_type(1);
 			const auto boxr = (tptr->boxid << box_id_type(1)) + box_id_type(1);
 			il = (boxl - total_nodes) * localities.size() / total_nodes;
 			ir = (boxr - total_nodes) * localities.size() / total_nodes;
+//			printf( "%i\n", total_nodes);
+//			printf("%x %i\n", tptr->boxid << box_id_type(1), il);
+//			printf("%x %i\n", (tptr->boxid << box_id_type(1)) + box_id_type(1), ir);
 		}
 		hpx::future<tree_client> newl;
 		hpx::future<tree_client> newr;
-		printf("%i %i\n", il, ir);
 		if (il != hpx::get_locality_id()) {
 			newl = tptr->children[0].migrate(localities[il]);
 		}

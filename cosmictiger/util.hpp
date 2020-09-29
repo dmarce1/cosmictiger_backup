@@ -11,7 +11,7 @@
 #include <cstdint>
 
 inline int msb(std::uint64_t i) {
-	return 64 - __builtin_clz(i);
+	return 64 - __builtin_clzll(i);
 }
 
 #endif /* COSMICTIGER_UTIL_HPP_ */
