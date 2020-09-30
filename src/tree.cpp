@@ -213,7 +213,11 @@ int tree::load_balance(int stack_cnt, std::uint64_t index) {
 tree_client tree::migrate(hpx::id_type locality) {
 	auto new_ptr = hpx::new_ < tree > (locality, *this);
 	auto new_id = new_ptr.get();
-	return tree_client(new_id, hpx::async < get_ptr_action > (new_id).get());
+	if (hpx::get_colocation_id(new_id).get() == hpx::find_here()) {
+		return tree_client(new_id, get_ptr_action()(new_id));
+	} else {
+		return tree_client(new_id, hpx::async < get_ptr_action > (new_id).get());
+	}
 
 }
 
