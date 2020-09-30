@@ -143,16 +143,14 @@ int tree::load_balance(int stack_cnt, std::uint64_t index) {
 		if (child_level > min_level) {
 			il = index * std::uint64_t(localities.size()) / opts.problem_size;
 			ir = (index + tptr->child_cnt[0]) * std::uint64_t(localities.size()) / opts.problem_size;
-			il = hpx::get_locality_id();
-			ir = hpx::get_locality_id();
 		} else {
 			const auto total_nodes = (1 << child_level);
 			const auto dim = tptr->level % NDIM;
 			const auto xl = 0.75 * tptr->box.min[dim] + 0.25 * tptr->box.max[dim];
 			const auto xr = 0.25 * tptr->box.min[dim] + 0.75 * tptr->box.max[dim];
-			const auto den = 1.0 / (1 << (tptr->level / NDIM));
-			il = std::uint64_t(xl * den) * localities.size() / total_nodes;
-			ir = std::uint64_t(xr * den) * localities.size() / total_nodes;
+			const auto x0 = (1 << (tptr->level / NDIM));
+			il = std::uint64_t(xl * x0) * localities.size() / total_nodes;
+			ir = std::uint64_t(xr * x0) * localities.size() / total_nodes;
 		}
 		assert(il >= 0);
 		assert(il < localities.size());

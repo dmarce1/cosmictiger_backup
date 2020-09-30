@@ -53,7 +53,7 @@ int hpx_main(int argc, char *argv[]) {
 	printf("Growing\n");
 	root.grow(0, bucket()).get();
 	printf("Grown\n");
-	constexpr std::uint64_t chunk_size = 32 * 1024 * 1024;
+	constexpr std::uint64_t chunk_size = 64 * 1024 * 1024;
 	for (std::uint64_t i = 0; i < opts.problem_size; i += chunk_size) {
 		bucket these_parts;
 		for (std::uint64_t j = 0; j < chunk_size; j++) {
