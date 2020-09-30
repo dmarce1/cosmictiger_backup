@@ -95,35 +95,32 @@ std::uint64_t tree::grow(int stack_cnt, bucket &&parts) {
 		if (tptr->level < min_level || parts.size() + tptr->parts.size() > opts.bucket_size) {
 			create_children();
 		} else {
-			while (parts.size()) {
-				tptr->parts.insert(parts.front());
-				parts.remove(parts.begin());
+			if (tptr->parts.size() == 0) {
+				tptr->parts = std::move(parts);
+			} else {
+				for (auto i = parts.begin(); i != parts.end(); i++) {
+					tptr->parts.insert(*i);
+				}
 			}
 		}
 	}
 	if (!tptr->leaf) {
-		bucket parts_left;
-		bucket parts_right;
 		while (tptr->parts.size()) {
 			parts.insert(tptr->parts.front());
 			tptr->parts.remove(tptr->parts.begin());
 		}
+		bucket parts_left = std::move(parts);
+		bucket parts_right;
 		const int dim = range_max_dim(tptr->box);
 		const double xmid = 0.5 * (tptr->box.max[dim] + tptr->box.min[dim]);
-		while (parts.size()) {
-			const auto &p = parts.front();
-			if (double(p.x[dim]) < xmid) {
-				parts_left.insert(p);
+		auto i = parts_left.begin();
+		while (i != parts_left.end()) {
+			if (double(i->x[dim]) >= xmid) {
+				parts_right.insert(*i);
+				i = parts_left.remove(i);
 			} else {
-				parts_right.insert(p);
+				i++;
 			}
-			parts.remove(parts.begin());
-		}
-		if (!tptr->children[0].local()) {
-			printf("Sending %i left\n", parts_left.size());
-		}
-		if (!tptr->children[1].local()) {
-			printf("Sending %i right\n", parts_right.size());
 		}
 		auto futl = tptr->children[0].grow(stack_cnt, std::move(parts_left));
 		auto futr = tptr->children[1].grow(stack_cnt, std::move(parts_right));
@@ -205,15 +202,10 @@ std::uint64_t tree::prune(int stack_cnt) {
 			auto tmpr = futr.get();
 			tptr->children[1] = tree_client();
 			auto sz = tmpr.size() + tmpl.size();
-			int j = 0;
 			for (auto i = tmpl.begin(); i != tmpl.end(); i++) {
 				tmpr.insert(*i);
-				j++;
 			}
 			tptr->parts = std::move(tmpr);
-			if( j != tmpl.size()) {
-				printf( "%li %li\n", j, tmpl.size());
-			}
 			tptr->leaf = true;
 		}
 	} else if (tptr->parts.size() > opts.bucket_size) {

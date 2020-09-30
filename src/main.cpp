@@ -36,7 +36,7 @@ int hpx_main(int argc, char *argv[]) {
 	for (int i = 0; i < opts.problem_size; i++) {
 		particle p;
 		p.x = double_to_pos(rand_unit_vect());
-		p.v = rand_unit_vect() * std::pow(std::max(opts.problem_size / opts.bucket_size, std::uint64_t(1)), - 1.0 / 3.0) / 2.0;
+		p.v = rand_unit_vect() * std::pow(std::max(opts.problem_size / opts.bucket_size, std::uint64_t(1)), - 1.0 / 3.0) / 8.0;
 		p.out = 0;
 		p.step = 0;
 		p.group = 0;
