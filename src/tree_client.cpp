@@ -8,7 +8,7 @@
 #include <cosmictiger/hpx.hpp>
 #include <cosmictiger/tree.hpp>
 
-#define MAX_STACK 18
+#define MAX_STACK 9
 
 static std::atomic<int> thread_cnt(0);
 static const int max_threads = 4 * std::thread::hardware_concurrency();
