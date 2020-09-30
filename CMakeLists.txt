@@ -33,6 +33,7 @@ set(cosmictiger_source_files
 	src/range.cpp
 	src/tree.cpp
 	src/tree_dir.cpp
+	src/tree_drift.cpp
 	src/tree_client.cpp
 )
 

@@ -73,100 +73,6 @@ void tree::create_children() {
 	tptr->children[1] = tree_client(std::move(id_right), fptrr.get());
 }
 
-std::uint64_t tree::drift(int stack_cnt, int step, tree_client parent, tree_client self, float dt) {
-	tptr->parent = parent;
-	std::uint64_t drifted = 0;
-	if (tptr->leaf) {
-		std::unique_lock<mutex_type> lock(tptr->mtx);
-		bucket exit_parts;
-		auto i = tptr->parts.begin();
-		while (i != tptr->parts.end()) {
-			if (step % 2 == i->step) {
-				auto x = pos_to_double(i->x);
-				const auto v = i->v;
-				x += v * dt;
-				i->x = double_to_pos(x);
-				i->step++;
-				if (!in_range(pos_to_double(i->x), tptr->box)) {
-					exit_parts.insert(*i);
-					drifted++;
-					i = tptr->parts.remove(i);
-				} else {
-					i++;
-				}
-			} else {
-				i++;
-			}
-		}
-		lock.unlock();
-		if (exit_parts.size()) {
-			parent.find_home(stack_cnt, std::move(exit_parts)).get();
-		}
-	} else {
-		auto futl = tptr->children[0].drift(stack_cnt, step, self, tptr->children[0], dt);
-		auto futr = tptr->children[1].drift(stack_cnt, step, self, tptr->children[1], dt);
-		drifted += futl.get();
-		drifted += futr.get();
-	}
-	return drifted;
-}
-
-int tree::find_home(int stack_cnt, bucket parts) {
-	std::unique_lock<mutex_type> lock(tptr->mtx);
-	if (tptr->leaf) {
-		while (parts.size()) {
-			assert(in_range(pos_to_double(parts.front().x), tptr->box));
-			tptr->parts.insert(parts.front());
-			parts.remove(parts.begin());
-		}
-		lock.unlock();
-	} else {
-		bucket p_parts;
-		bucket l_parts;
-		bucket r_parts;
-		const auto dim = tptr->level % NDIM;
-		const auto midx = 0.5 * (tptr->box.min[dim] + tptr->box.max[dim]);
-		while (parts.size()) {
-			auto &p = parts.front();
-			const auto x = pos_to_double(p.x);
-			if (!in_range(x, tptr->box)) {
-				p_parts.insert(p);
-			} else if (x[dim] >= midx) {
-				r_parts.insert(p);
-			} else {
-				l_parts.insert(p);
-			}
-			parts.remove(parts.begin());
-		}
-		lock.unlock();
-		hpx::future<int> pfut;
-		hpx::future<int> lfut;
-		hpx::future<int> rfut;
-		if (p_parts.size()) {
-			assert(tptr->parent != tree_client());
-			pfut = tptr->parent.find_home(stack_cnt, std::move(p_parts));
-		} else {
-			pfut = hpx::make_ready_future(0);
-		}
-		if (l_parts.size()) {
-			assert(tptr->children[0] != tree_client());
-			lfut = tptr->children[0].find_home(stack_cnt, std::move(l_parts));
-		} else {
-			lfut = hpx::make_ready_future(0);
-		}
-		if (r_parts.size()) {
-			assert(tptr->children[1] != tree_client());
-			rfut = tptr->children[1].find_home(stack_cnt, std::move(r_parts));
-		} else {
-			rfut = hpx::make_ready_future(0);
-		}
-		pfut.get();
-		lfut.get();
-		rfut.get();
-	}
-	return 0;
-}
-
 int tree::destroy(int stack_cnt) {
 	if (!tptr->leaf) {
 		auto futl = tptr->children[0].destroy(stack_cnt);
@@ -228,26 +134,7 @@ std::uint64_t tree::grow(int stack_cnt, bucket &&parts) {
 }
 
 bucket tree::get_parts() {
-	bucket parts;
-	while (tptr->parts.size()) {
-		parts.insert(tptr->parts.front());
-		tptr->parts.remove(tptr->parts.begin());
-	}
-	if (!tptr->leaf) {
-		auto futl = tptr->children[0].get_parts();
-		auto futr = tptr->children[1].get_parts();
-		auto tmp = futl.get();
-		while (tmp.size()) {
-			parts.insert(tmp.front());
-			tmp.remove(tmp.begin());
-		}
-		tmp = futr.get();
-		while (tmp.size()) {
-			parts.insert(tmp.front());
-			tmp.remove(tmp.begin());
-		}
-	}
-	return parts;
+	return std::move(tptr->parts);
 }
 
 int tree::load_balance(int stack_cnt, std::uint64_t index) {
@@ -317,13 +204,15 @@ std::uint64_t tree::prune(int stack_cnt) {
 			tptr->children[0] = tree_client();
 			auto tmpr = futr.get();
 			tptr->children[1] = tree_client();
-			while (tmpl.size()) {
-				tptr->parts.insert(tmpl.front());
-				tmpl.remove(tmpl.begin());
+			auto sz = tmpr.size() + tmpl.size();
+			int j = 0;
+			for (auto i = tmpl.begin(); i != tmpl.end(); i++) {
+				tmpr.insert(*i);
+				j++;
 			}
-			while (tmpr.size()) {
-				tptr->parts.insert(tmpr.front());
-				tmpr.remove(tmpr.begin());
+			tptr->parts = std::move(tmpr);
+			if( j != tmpl.size()) {
+				printf( "%li %li\n", j, tmpl.size());
 			}
 			tptr->leaf = true;
 		}

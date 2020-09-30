@@ -12,7 +12,6 @@
 
 static std::atomic<int> thread_cnt(0);
 static const int max_threads = 4 * std::thread::hardware_concurrency();
-static std::atomic<int> stack_threads(0);
 
 template<class T, class Function, class ... Args>
 hpx::future<T> thread_handler(Function &&function, int stack_cnt, Args &&... args) {
@@ -27,12 +26,9 @@ hpx::future<T> thread_handler(Function &&function, int stack_cnt, Args &&... arg
 	} else {
 		thread_cnt--;
 		if (stack_cnt >= MAX_STACK) {
-			stack_threads++;
 			future = hpx::make_ready_future(hpx::async([](Function &&function, Args &&... args) {
-				 auto rc = function(0, std::forward<Args>(args)...);
-				 stack_threads--;
-	//			 printf( "%i\n", (int) stack_threads);
-				 return rc;
+				auto rc = function(0, std::forward<Args>(args)...);
+				return rc;
 			}, std::move(function), std::forward<Args>(args)...).get());
 		} else {
 			future = hpx::make_ready_future(function(stack_cnt, std::forward<Args>(args)...));
@@ -119,14 +115,19 @@ hpx::future<std::uint64_t> tree_client::drift(int stack_cnt, int step, tree_clie
 
 }
 
-hpx::future<int> tree_client::find_home(int stack_cnt, bucket &&b) const {
-	if (hpx::get_colocation_id(id).get() != hpx::find_here()) {
-		return hpx::async < tree::find_home_action > (id, 0, std::move(b));
+int tree_client::find_home_parent(int stack_cnt, bucket &&b) const {
+	if (hpx::get_colocation_id(id).get() != hpx::find_here() || stack_cnt >= MAX_STACK) {
+		auto rc = hpx::async < tree::find_home_parent_action > (id, 0, std::move(b)).get();
+		return rc;
 	} else {
-		return thread_handler<int>([this](int stack_cnt, bucket &&b) {
-			return reinterpret_cast<tree*>(ptr)->find_home(stack_cnt, std::move(b));
-		}, stack_cnt, std::move(b));
+		return reinterpret_cast<tree*>(ptr)->find_home_parent(stack_cnt, std::move(b));
 	}
-
 }
 
+int tree_client::find_home_child(int stack_cnt, bucket &&b) const {
+	if (hpx::get_colocation_id(id).get() != hpx::find_here() || stack_cnt >= MAX_STACK) {
+		return hpx::async < tree::find_home_child_action > (id, 0, std::move(b)).get();
+	} else {
+		return reinterpret_cast<tree*>(ptr)->find_home_child(stack_cnt, std::move(b));
+	}
+}

@@ -17,12 +17,12 @@ tree_dir::tree_dir() {
 	nz = 1 << (level - 2);
 }
 
-void tree_dir::add_tree_client(const tree_client &client, const range& box) {
+void tree_dir::add_tree_client(const tree_client &client, const range &box) {
 	nodes[index(range_center(box))] = client;
 }
 
 tree_dir& tree_dir::merge(const tree_dir &other) {
-	for( auto i : other.nodes) {
+	for (auto i : other.nodes) {
 		nodes[i.first] = i.second;
 	}
 	return *this;
@@ -37,7 +37,8 @@ int tree_dir::index(int x, int y, int z) const {
 }
 
 hpx::future<void> tree_dir::find_home(int stack_cnt, bucket &&parts) {
-	std::unordered_map<int, bucket> buckets;
+	using map_type = std::unordered_map<int, bucket>;
+	map_type buckets;
 	while (parts.size()) {
 		const auto &p = parts.front();
 		const auto i = index(pos_to_double(p.x));
@@ -46,7 +47,11 @@ hpx::future<void> tree_dir::find_home(int stack_cnt, bucket &&parts) {
 	}
 	std::vector<hpx::future<int>> futs;
 	for (auto &i : buckets) {
-		futs.push_back(nodes[i.first].find_home(stack_cnt + 1, std::move(i.second)));
+		auto func = [this, stack_cnt](int id, bucket&& parts) {
+			nodes[id].find_home_child(stack_cnt + 1, std::move(parts));
+			return 0;
+		};
+		futs.push_back(hpx::async(std::move(func), i.first, std::move(i.second)));
 	}
 	return hpx::when_all(futs.begin(), futs.end());
 }

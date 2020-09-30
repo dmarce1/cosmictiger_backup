@@ -51,7 +51,7 @@ struct bucket {
 			return &(ptr->data[off]);
 		}
 		bool operator==(const iterator &other) const {
-			return (ptr == other.ptr) && ((off % CUP_SIZE) == (other.off % CUP_SIZE));
+			return (ptr == other.ptr) && (off == other.off);
 		}
 		bool operator!=(const iterator &other) const {
 			return !(*this == other);

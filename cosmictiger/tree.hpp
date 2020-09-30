@@ -30,7 +30,8 @@ public:
 	void create_children();
 	int destroy(int);
 	std::uint64_t drift(int, int, tree_client, tree_client, float dt);
-	int find_home(int, bucket);
+	int find_home_parent(int, bucket);
+	int find_home_child(int, bucket);
 	bucket get_parts();
 	std::uint64_t get_ptr();
 	std::uint64_t grow(int, bucket&&);
@@ -42,7 +43,8 @@ public:
 	/**/HPX_DEFINE_COMPONENT_ACTION(tree,build_tree_dir);
 	/**/HPX_DEFINE_COMPONENT_ACTION(tree,destroy);
 	/**/HPX_DEFINE_COMPONENT_ACTION(tree,drift);
-	/**/HPX_DEFINE_COMPONENT_ACTION(tree,find_home);
+	/**/HPX_DEFINE_COMPONENT_ACTION(tree,find_home_parent);
+	/**/HPX_DEFINE_COMPONENT_ACTION(tree,find_home_child);
 	/**/HPX_DEFINE_COMPONENT_ACTION(tree,grow);
 	/**/HPX_DEFINE_COMPONENT_ACTION(tree,load_balance);
 	/**/HPX_DEFINE_COMPONENT_ACTION(tree,prune);

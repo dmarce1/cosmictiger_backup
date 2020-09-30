@@ -40,7 +40,8 @@ public:
 	}
 	hpx::future<int> destroy(int) const;
 	hpx::future<std::uint64_t> drift(int, int,tree_client, tree_client, float dt) const;
-	hpx::future<int> find_home(int, bucket&&) const;
+	int find_home_parent(int, bucket&&) const;
+	int find_home_child(int, bucket&&) const;
 	hpx::future<bucket> get_parts() const;
 	hpx::future<std::uint64_t> grow(int, bucket&&) const;
 	hpx::future<tree_client> migrate(hpx::id_type) const;
