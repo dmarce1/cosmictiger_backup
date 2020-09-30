@@ -79,6 +79,8 @@ int hpx_main(int argc, char *argv[]) {
 	std::uint64_t cnt = root.drift(0, step++, tree_client(), root, 0.01).get();
 	printf("Pruning\n");
 	root.prune(0).get();
+	printf("Balancing\n");
+	root.load_balance(0, 0).get();
 	double dtime = timer() - ts;
 	double pct_drift = double(cnt) / opts.problem_size * 100;
 	printf("Drift takes %e seconds %f%% drifted\n", dtime, pct_drift);
