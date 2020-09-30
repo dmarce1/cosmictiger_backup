@@ -22,8 +22,11 @@ struct tree_mems {
 	tree_mems() : lock(0) {
 	}
 
-	tree_mems& operator=(const tree_mems &other) {
-		parts = other.parts;
+	tree_mems& operator=(const tree_mems& other) {
+		parts.clear();
+		for( auto i = other.parts.cbegin(); i != other.parts.cend(); i++) {
+			parts.insert(*i);
+		}
 		children = other.children;
 		parent = other.parent;
 		box = other.box;

@@ -68,13 +68,17 @@ hpx::future<std::uint64_t> tree_client::prune(int stack_cnt, bool left) const {
 		}
 	}
 }
-hpx::future<std::uint64_t> tree_client::grow(int stack_cnt, bucket &&parts) const {
+hpx::future<std::uint64_t> tree_client::grow(int stack_cnt, bool left, bucket &&parts) const {
 	if (hpx::get_colocation_id(id).get() != hpx::find_here()) {
 		return hpx::async < tree::grow_action > (id, 0, std::move(parts));
 	} else {
+		if( left ) {
 		return thread_handler<std::uint64_t>([this](int stack_cnt, bucket &&parts) {
 			return reinterpret_cast<tree*>(ptr)->grow(stack_cnt, std::move(parts));
 		}, stack_cnt, std::move(parts));
+		} else {
+			return hpx::make_ready_future(reinterpret_cast<tree*>(ptr)->grow(stack_cnt, std::move(parts)));
+		}
 	}
 }
 

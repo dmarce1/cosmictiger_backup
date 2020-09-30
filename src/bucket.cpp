@@ -12,6 +12,10 @@
 #include <stack>
 #include <vector>
 
+
+#define CHUNK_SIZE (16*1024)
+
+
 static std::stack<cup*, std::vector<cup*>> main_stack;
 static std::atomic<int> lock(0);
 
@@ -46,8 +50,6 @@ public:
 };
 
 static thread_local cup_stack stack;
-
-#define CHUNK_SIZE (1024)
 
 cup* bucket_cup_alloc() {
 	if (stack.empty()) {

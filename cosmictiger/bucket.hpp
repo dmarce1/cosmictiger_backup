@@ -186,13 +186,14 @@ public:
 		}
 		return iter;
 	}
-	inline bucket& operator=(const bucket &other) {
-		clear();
-		for (auto i = other.cbegin(); i != other.cend(); i++) {
-			insert(*i);
-		}
-		return *this;
-	}
+	inline bucket& operator=(const bucket &other)  = delete;
+//	inline bucket& operator=(const bucket &other) {
+//		clear();
+//		for (auto i = other.cbegin(); i != other.cend(); i++) {
+//			insert(*i);
+//		}
+//		return *this;
+//	}
 	inline bucket& operator=(bucket &&other) {
 		clear();
 		start = other.start;
@@ -203,10 +204,11 @@ public:
 		other.sz = 0;
 		return *this;
 	}
-	inline bucket(const bucket &other) {
-		start.ptr = nullptr;
-		*this = other;
-	}
+	inline bucket(const bucket &other) = delete;
+//	inline bucket(const bucket &other) {
+//		start.ptr = nullptr;
+//		*this = other;
+//	}
 	inline bucket(bucket &&other) {
 		start.ptr = nullptr;
 		*this = std::move(other);

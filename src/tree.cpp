@@ -94,10 +94,15 @@ void tree::create_children() {
 	tptr->leaf = false;
 	auto id_left = futl.get();
 	auto id_right = futr.get();
-	auto fptrl = hpx::async < get_ptr_action > (id_left);
-	auto fptrr = hpx::async < get_ptr_action > (id_right);
+	hpx::future < std::uint64_t > fptrl;
+	if (hpx::get_colocation_id(id_left).get() == hpx::find_here()) {
+		fptrl = hpx::make_ready_future(get_ptr_action()(id_left));
+	} else {
+		fptrl = hpx::async < get_ptr_action > (id_left);
+	}
+	auto ptrr = get_ptr_action()(id_right);
 	tptr->children[0] = tree_client(std::move(id_left), fptrl.get());
-	tptr->children[1] = tree_client(std::move(id_right), fptrr.get());
+	tptr->children[1] = tree_client(std::move(id_right), ptrr);
 }
 
 int tree::destroy(int stack_cnt) {
@@ -149,8 +154,8 @@ std::uint64_t tree::grow(int stack_cnt, bucket &&parts) {
 				i++;
 			}
 		}
-		auto futl = tptr->children[0].grow(stack_cnt, std::move(parts_left));
-		auto futr = tptr->children[1].grow(stack_cnt, std::move(parts_right));
+		auto futl = tptr->children[0].grow(stack_cnt, true, std::move(parts_left));
+		auto futr = tptr->children[1].grow(stack_cnt, false, std::move(parts_right));
 		tptr->child_cnt[0] = futl.get();
 		tptr->child_cnt[1] = futr.get();
 	}
