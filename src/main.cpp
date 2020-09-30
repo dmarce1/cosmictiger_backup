@@ -64,28 +64,28 @@ int hpx_main(int argc, char *argv[]) {
 				break;
 			}
 		}
-		root.load_balance(0, 0).get();
+		root.load_balance(0, false, 0).get();
 		printf("Balanced\n");
 		auto count = root.grow(0, std::move(these_parts)).get();
 		printf("Counted %li parts %e s\n", count, timer() - ts);
 	}
 	printf("Grown\n");
-	root.load_balance(0, 0).get();
+	root.load_balance(0, false, 0).get();
 	printf("Balanced\n");
 	ts = timer();
 	int step = 0;
 	ts = timer();
 	printf("Drifting\n");
-	std::uint64_t cnt = root.drift(0, step++, tree_client(), root, 0.01).get();
+	std::uint64_t cnt = root.drift(0, false, step++, tree_client(), root, 0.01).get();
 	printf("Pruning\n");
-	root.prune(0).get();
+	root.prune(0,false).get();
 	printf("Balancing\n");
-	root.load_balance(0, 0).get();
+	root.load_balance(0, false, 0).get();
 	double dtime = timer() - ts;
 	double pct_drift = double(cnt) / opts.problem_size * 100;
 	printf("Drift takes %e seconds %f%% drifted\n", dtime, pct_drift);
 	ts = timer();
-	int rc = root.verify(0).get();
+	int rc = root.verify(0,false).get();
 	if (rc) {
 		printf("%s\n", tree_verification_error(rc).c_str());
 	}

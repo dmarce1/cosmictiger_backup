@@ -39,15 +39,15 @@ public:
 		return id == other.id;
 	}
 	hpx::future<int> destroy(int) const;
-	hpx::future<std::uint64_t> drift(int, int,tree_client, tree_client, float dt) const;
+	hpx::future<std::uint64_t> drift(int, bool, int,tree_client, tree_client, float dt) const;
 	int find_home_parent(int, bucket&&) const;
 	int find_home_child(int, bucket&&) const;
 	hpx::future<bucket> get_parts() const;
 	hpx::future<std::uint64_t> grow(int, bucket&&) const;
 	hpx::future<tree_client> migrate(hpx::id_type) const;
-	hpx::future<int> load_balance(int, std::uint64_t) const;
-	hpx::future<std::uint64_t> prune(int) const;
-	hpx::future<int> verify(int) const;
+	hpx::future<int> load_balance(int, bool left, std::uint64_t) const;
+	hpx::future<std::uint64_t> prune(int, bool) const;
+	hpx::future<int> verify(int, bool) const;
 	bool local() const {
 		return hpx::get_colocation_id(id).get() == hpx::find_here();
 	}

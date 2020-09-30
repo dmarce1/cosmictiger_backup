@@ -15,9 +15,12 @@ struct tree_mems {
 	std::array<tree_client, NCHILD> children;
 	tree_client parent;
 	std::array<std::uint64_t, NCHILD> child_cnt;
-	mutex_type mtx;
+	std::atomic<int> lock;
 	std::uint8_t leaf;
 	std::uint8_t level;
+
+	tree_mems() : lock(0) {
+	}
 
 	tree_mems& operator=(const tree_mems &other) {
 		parts = other.parts;

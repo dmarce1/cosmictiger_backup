@@ -7,7 +7,34 @@
 #include <stack>
 #include <thread>
 
+#ifdef HPX_LITE
+HPX_REGISTER_MINIMAL_COMPONENT_FACTORY(hpx::components::managed_component<tree>, tree);
+using destroy_type = tree::destroy_action;
+using drift_type = tree::drift_action;
+using find_home_parent_type = tree::find_home_parent_action;
+using find_home_child_type = tree::find_home_child_action;
+using grow_type = tree::grow_action;
+using load_balance_type = tree::load_balance_action;
+using prune_type = tree::prune_action;
+using verify_type = tree::verify_action;
+using get_ptr_type = tree::get_ptr_action;
+using get_parts_type = tree::get_parts_action;
+using migrate_type = tree::migrate_action;
+HPX_REGISTER_ACTION(destroy_type);
+HPX_REGISTER_ACTION(drift_type);
+HPX_REGISTER_ACTION(find_home_parent_type);
+HPX_REGISTER_ACTION(find_home_child_type);
+HPX_REGISTER_ACTION(grow_type);
+HPX_REGISTER_ACTION(load_balance_type);
+HPX_REGISTER_ACTION(prune_type);
+HPX_REGISTER_ACTION(verify_type);
+HPX_REGISTER_ACTION(get_ptr_type);
+HPX_REGISTER_ACTION(get_parts_type);
+HPX_REGISTER_ACTION(migrate_type);
+
+#else
 HPX_REGISTER_COMPONENT(hpx::components::managed_component<tree>, tree);
+#endif
 
 std::string tree_verification_error(int rc) {
 	std::string error = "";
@@ -43,19 +70,19 @@ tree::~tree() {
 	delete tptr;
 }
 
-tree_dir tree::build_tree_dir(tree_client self) const {
-	const int min_level = msb(hpx_localities().size()) - 1;
-	if (tptr->level == min_level) {
-		tree_dir dir;
-		dir.add_tree_client(self, tptr->box);
-		return dir;
-	} else {
-		auto futl = hpx::async < build_tree_dir_action > (tptr->children[0].get_id(), tptr->children[0]);
-		auto futr = hpx::async < build_tree_dir_action > (tptr->children[1].get_id(), tptr->children[1]);
-		tree_dir left = futl.get();
-		return left.merge(futr.get());
-	}
-}
+//tree_dir tree::build_tree_dir(tree_client self) const {
+//	const int min_level = msb(hpx_localities().size()) - 1;
+//	if (tptr->level == min_level) {
+//		tree_dir dir;
+//		dir.add_tree_client(self, tptr->box);
+//		return dir;
+//	} else {
+//		auto futl = hpx::async < build_tree_dir_action > (tptr->children[0].get_id(), tptr->children[0]);
+//		auto futr = hpx::async < build_tree_dir_action > (tptr->children[1].get_id(), tptr->children[1]);
+//		tree_dir left = futl.get();
+//		return left.merge(futr.get());
+//	}
+//}
 
 void tree::create_children() {
 	auto boxl = tptr->box;
@@ -136,8 +163,8 @@ bucket tree::get_parts() {
 
 int tree::load_balance(int stack_cnt, std::uint64_t index) {
 	if (!tptr->leaf) {
-		auto futl = tptr->children[0].load_balance(stack_cnt, index);
-		auto futr = tptr->children[1].load_balance(stack_cnt, index + tptr->child_cnt[0]);
+		auto futl = tptr->children[0].load_balance(stack_cnt, true, index);
+		auto futr = tptr->children[1].load_balance(stack_cnt, false, index + tptr->child_cnt[0]);
 		futl.get();
 		futr.get();
 		const auto &localities = hpx_localities();
@@ -188,8 +215,8 @@ tree_client tree::migrate(hpx::id_type locality) {
 std::uint64_t tree::prune(int stack_cnt) {
 	tptr->parent = tree_client();
 	if (!tptr->leaf) {
-		auto futl = tptr->children[0].prune(stack_cnt);
-		auto futr = tptr->children[1].prune(stack_cnt);
+		auto futl = tptr->children[0].prune(stack_cnt, true);
+		auto futr = tptr->children[1].prune(stack_cnt, false);
 		tptr->child_cnt[0] = futl.get();
 		tptr->child_cnt[1] = futr.get();
 		if (size() <= opts.bucket_size) {
@@ -237,8 +264,8 @@ int tree::verify(int stack_cnt) const {
 		if (tptr->level > min_level && size() <= opts.bucket_size) {
 			rc |= TREE_UNDERFLOW;
 		}
-		auto futl = tptr->children[0].verify(stack_cnt);
-		auto futr = tptr->children[1].verify(stack_cnt);
+		auto futl = tptr->children[0].verify(stack_cnt, true);
+		auto futr = tptr->children[1].verify(stack_cnt, false);
 		rc |= futl.get();
 		rc |= futr.get();
 	}

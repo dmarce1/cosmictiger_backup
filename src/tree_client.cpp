@@ -55,13 +55,17 @@ hpx::future<bucket> tree_client::get_parts() const {
 	}
 }
 
-hpx::future<std::uint64_t> tree_client::prune(int stack_cnt) const {
+hpx::future<std::uint64_t> tree_client::prune(int stack_cnt, bool left) const {
 	if (hpx::get_colocation_id(id).get() != hpx::find_here()) {
 		return hpx::async < tree::prune_action > (id, 0);
 	} else {
-		return thread_handler<std::uint64_t>([this](int stack_cnt) {
-			return reinterpret_cast<tree*>(ptr)->prune(stack_cnt);
-		}, stack_cnt);
+		if (left) {
+			return thread_handler<std::uint64_t>([this](int stack_cnt) {
+				return reinterpret_cast<tree*>(ptr)->prune(stack_cnt);
+			}, stack_cnt);
+		} else {
+			return hpx::make_ready_future(reinterpret_cast<tree*>(ptr)->prune(stack_cnt));
+		}
 	}
 }
 hpx::future<std::uint64_t> tree_client::grow(int stack_cnt, bucket &&parts) const {
@@ -74,23 +78,31 @@ hpx::future<std::uint64_t> tree_client::grow(int stack_cnt, bucket &&parts) cons
 	}
 }
 
-hpx::future<int> tree_client::load_balance(int stack_cnt, std::uint64_t cnt) const {
+hpx::future<int> tree_client::load_balance(int stack_cnt, bool left, std::uint64_t cnt) const {
 	if (hpx::get_colocation_id(id).get() != hpx::find_here()) {
 		return hpx::async < tree::load_balance_action > (id, 0, cnt);
 	} else {
-		return thread_handler<int>([this, cnt](int stack_cnt) {
-			return reinterpret_cast<tree*>(ptr)->load_balance(stack_cnt, cnt);
-		}, stack_cnt);
+		if (left) {
+			return thread_handler<int>([this, cnt](int stack_cnt) {
+				return reinterpret_cast<tree*>(ptr)->load_balance(stack_cnt, cnt);
+			}, stack_cnt);
+		} else {
+			return hpx::make_ready_future(reinterpret_cast<tree*>(ptr)->load_balance(stack_cnt, cnt));
+		}
 	}
 }
 
-hpx::future<int> tree_client::verify(int stack_cnt) const {
+hpx::future<int> tree_client::verify(int stack_cnt, bool left) const {
 	if (hpx::get_colocation_id(id).get() != hpx::find_here()) {
 		return hpx::async < tree::verify_action > (id, 0);
 	} else {
-		return thread_handler<int>([this](int stack_cnt) {
-			return reinterpret_cast<tree*>(ptr)->verify(stack_cnt);
-		}, stack_cnt);
+		if (left) {
+			return thread_handler<int>([this](int stack_cnt) {
+				return reinterpret_cast<tree*>(ptr)->verify(stack_cnt);
+			}, stack_cnt);
+		} else {
+			return hpx::make_ready_future(reinterpret_cast<tree*>(ptr)->verify(stack_cnt));
+		}
 	}
 }
 
@@ -114,13 +126,17 @@ hpx::future<int> tree_client::destroy(int stack_cnt) const {
 	}
 
 }
-hpx::future<std::uint64_t> tree_client::drift(int stack_cnt, int step, tree_client parent, tree_client self, float dt) const {
+hpx::future<std::uint64_t> tree_client::drift(int stack_cnt, bool left, int step, tree_client parent, tree_client self, float dt) const {
 	if (hpx::get_colocation_id(id).get() != hpx::find_here()) {
 		return hpx::async < tree::drift_action > (id, 0, step, std::move(parent), std::move(self), dt);
 	} else {
-		return thread_handler<std::uint64_t>([this, parent, self, dt, step](int stack_cnt) {
-			return reinterpret_cast<tree*>(ptr)->drift(stack_cnt, step, std::move(parent), std::move(self), dt);
-		}, stack_cnt);
+		if (left) {
+			return thread_handler<std::uint64_t>([this](int stack_cnt, int step, tree_client &&parent, tree_client &&self, float dt) {
+				return reinterpret_cast<tree*>(ptr)->drift(stack_cnt, std::move(step), std::move(parent), std::move(self), std::move(dt));
+			}, stack_cnt, std::move(step), std::move(parent), std::move(self), std::move(dt));
+		} else {
+			return hpx::make_ready_future(reinterpret_cast<tree*>(ptr)->drift(stack_cnt, step, std::move(parent), std::move(self), dt));
+		}
 	}
 
 }

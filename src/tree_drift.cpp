@@ -11,7 +11,9 @@ std::uint64_t tree::drift(int stack_cnt, int step, tree_client parent, tree_clie
 	tptr->parent = parent;
 	std::uint64_t drifted = 0;
 	if (tptr->leaf) {
-		std::unique_lock<mutex_type> lock(tptr->mtx);
+		while( tptr->lock++ != 0 ) {
+			tptr->lock--;
+		}
 		bucket exit_parts;
 		auto i = tptr->parts.begin();
 		while (i != tptr->parts.end()) {
@@ -32,13 +34,13 @@ std::uint64_t tree::drift(int stack_cnt, int step, tree_client parent, tree_clie
 				i++;
 			}
 		}
-		lock.unlock();
+		tptr->lock--;
 		if (exit_parts.size()) {
 			parent.find_home_parent(stack_cnt, std::move(exit_parts));
 		}
 	} else {
-		auto futl = tptr->children[0].drift(stack_cnt, step, self, tptr->children[0], dt);
-		auto futr = tptr->children[1].drift(stack_cnt, step, self, tptr->children[1], dt);
+		auto futl = tptr->children[0].drift(stack_cnt, true, step, self, tptr->children[0], dt);
+		auto futr = tptr->children[1].drift(stack_cnt, false, step, self, tptr->children[1], dt);
 		drifted += futl.get();
 		drifted += futr.get();
 	}
@@ -47,13 +49,15 @@ std::uint64_t tree::drift(int stack_cnt, int step, tree_client parent, tree_clie
 
 int tree::find_home_child(int stack_cnt, bucket parts) {
 	if (tptr->leaf) {
-		std::unique_lock<mutex_type> lock(tptr->mtx);
+		while( tptr->lock++ != 0 ) {
+			tptr->lock--;
+		}
 		while (parts.size()) {
 			assert(in_range(pos_to_double(parts.front().x), tptr->box));
 			tptr->parts.insert(parts.front());
 			parts.remove(parts.begin());
 		}
-		lock.unlock();
+		tptr->lock--;
 	} else {
 		bucket l_parts;
 		bucket r_parts;
