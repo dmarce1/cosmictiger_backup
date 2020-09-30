@@ -55,7 +55,7 @@ int hpx_main(int argc, char *argv[]) {
 	std::uint64_t chunk_size = 64;
 	std::uint64_t count = 1;
 	for (std::uint64_t i = 0; i < opts.problem_size; i += chunk_size) {
-		chunk_size=std::min(std::uint64_t(2)*chunk_size,std::uint64_t(64*1024*1024));
+		chunk_size=std::min(std::uint64_t(2)*chunk_size,std::uint64_t(32*1024*1024));
 		bucket these_parts;
 	//	printf( "%li to %li\n", i, i + chunk_size );
 		for (std::uint64_t j = 0; j < chunk_size; j++) {
