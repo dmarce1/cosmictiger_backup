@@ -122,10 +122,10 @@ int main(int argc, char* argv[]) {
 	}
 
 	int rank, provided, rc = MPI_Init_thread(&argc, &argv, MPI_THREAD_FUNNELED, &provided);
-	if (provided < MPI_THREAD_FUNNELED) {
-		printf("MPI threading insufficient\n");
+//	if (provided != MPI_THREAD_FUNNELED && provided != MPI_THREAD_MULTIPLE ) {
+//		printf("MPI threading insufficient\n");
 		rc = EXIT_FAILURE;
-	} else {
+//	} else {
 		hpx::detail::thread_initialize();
 		MPI_Comm_rank(MPI_COMM_WORLD, &hpx::detail::mpi_comm_rank());
 		MPI_Comm_size(MPI_COMM_WORLD, &hpx::detail::mpi_comm_size());
@@ -146,7 +146,7 @@ int main(int argc, char* argv[]) {
 			thd.join();
 		}
 		rc = EXIT_SUCCESS;
-	}
+//	}
 	MPI_Finalize();
 	hpx::detail::thread_finalize();
 	return rc;

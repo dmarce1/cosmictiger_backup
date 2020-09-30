@@ -45,7 +45,7 @@ public:
 	hpx::future<bucket> get_parts() const;
 	hpx::future<std::uint64_t> grow(int, bool, bucket&&) const;
 	hpx::future<tree_client> migrate(hpx::id_type) const;
-	hpx::future<int> load_balance(int, bool left, std::uint64_t) const;
+	hpx::future<int> load_balance(int, bool left, std::uint64_t, std::uint64_t) const;
 	hpx::future<std::uint64_t> prune(int, bool) const;
 	hpx::future<int> verify(int, bool) const;
 	bool local() const {

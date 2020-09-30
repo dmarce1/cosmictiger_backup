@@ -82,16 +82,16 @@ hpx::future<std::uint64_t> tree_client::grow(int stack_cnt, bool left, bucket &&
 	}
 }
 
-hpx::future<int> tree_client::load_balance(int stack_cnt, bool left, std::uint64_t cnt) const {
+hpx::future<int> tree_client::load_balance(int stack_cnt, bool left, std::uint64_t cnt, std::uint64_t cnt2) const {
 	if (hpx::get_colocation_id(id).get() != hpx::find_here()) {
-		return hpx::async < tree::load_balance_action > (id, 0, cnt);
+		return hpx::async < tree::load_balance_action > (id, 0, cnt, cnt2);
 	} else {
 		if (left) {
-			return thread_handler<int>([this, cnt](int stack_cnt) {
-				return reinterpret_cast<tree*>(ptr)->load_balance(stack_cnt, cnt);
+			return thread_handler<int>([this, cnt, cnt2](int stack_cnt) {
+				return reinterpret_cast<tree*>(ptr)->load_balance(stack_cnt, cnt, cnt2);
 			}, stack_cnt);
 		} else {
-			return hpx::make_ready_future(reinterpret_cast<tree*>(ptr)->load_balance(stack_cnt, cnt));
+			return hpx::make_ready_future(reinterpret_cast<tree*>(ptr)->load_balance(stack_cnt, cnt, cnt2));
 		}
 	}
 }

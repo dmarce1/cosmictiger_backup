@@ -166,10 +166,10 @@ bucket tree::get_parts() {
 	return std::move(tptr->parts);
 }
 
-int tree::load_balance(int stack_cnt, std::uint64_t index) {
+int tree::load_balance(int stack_cnt, std::uint64_t index, std::uint64_t total) {
 	if (!tptr->leaf) {
-		auto futl = tptr->children[0].load_balance(stack_cnt, true, index);
-		auto futr = tptr->children[1].load_balance(stack_cnt, false, index + tptr->child_cnt[0]);
+		auto futl = tptr->children[0].load_balance(stack_cnt, true, index, total);
+		auto futr = tptr->children[1].load_balance(stack_cnt, false, index + tptr->child_cnt[0], total);
 		futl.get();
 		futr.get();
 		const auto &localities = hpx_localities();
@@ -177,8 +177,8 @@ int tree::load_balance(int stack_cnt, std::uint64_t index) {
 		std::uint64_t il, ir;
 		const int child_level = tptr->level + 1;
 		if (child_level > min_level) {
-			il = index * std::uint64_t(localities.size()) / opts.problem_size;
-			ir = (index + tptr->child_cnt[0]) * std::uint64_t(localities.size()) / opts.problem_size;
+			il = index * std::uint64_t(localities.size()) / total;
+			ir = (index + tptr->child_cnt[0]) * std::uint64_t(localities.size()) / total;
 		} else {
 			const auto total_nodes = (1 << child_level);
 			const auto dim = tptr->level % NDIM;

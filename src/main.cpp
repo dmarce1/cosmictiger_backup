@@ -52,7 +52,8 @@ int hpx_main(int argc, char *argv[]) {
 	printf("Growing\n");
 	root.grow(0, false, bucket()).get();
 	printf("Grown\n");
-	constexpr std::uint64_t chunk_size = 64 * 1024 * 1024;
+	std::uint64_t chunk_size = 1;
+	std::uint64_t count = 1;
 	for (std::uint64_t i = 0; i < opts.problem_size; i += chunk_size) {
 		bucket these_parts;
 		for (std::uint64_t j = 0; j < chunk_size; j++) {
@@ -63,14 +64,18 @@ int hpx_main(int argc, char *argv[]) {
 				break;
 			}
 		}
-		root.load_balance(0, false, 0).get();
+		root.load_balance(0, false, 0, count).get();
 		printf("Balanced\n");
 		auto ts = timer();
-		auto count = root.grow(0, false, std::move(these_parts)).get();
+		count = root.grow(0, false, std::move(these_parts)).get();
 		printf("Counted %li parts %e s\n", count, timer() - ts);
+		chunk_size *= 2;
+		if( chunk_size > 64*1024*1024 ) {
+			chunk_size = 64*1024*1024;
+		}
 	}
 	printf("Grown\n");
-	root.load_balance(0, false, 0).get();
+	root.load_balance(0, false, 0, opts.problem_size).get();
 	printf("Balanced\n");
 	auto ts = timer();
 	int step = 0;
@@ -80,7 +85,7 @@ int hpx_main(int argc, char *argv[]) {
 	printf("Pruning\n");
 	root.prune(0, false).get();
 	printf("Balancing\n");
-	root.load_balance(0, false, 0).get();
+	root.load_balance(0, false, 0, opts.problem_size).get();
 	double dtime = timer() - ts;
 	double pct_drift = double(cnt) / opts.problem_size * 100;
 	printf("Drift takes %e seconds %f%% drifted\n", dtime, pct_drift);
@@ -91,7 +96,7 @@ int hpx_main(int argc, char *argv[]) {
 	}
 	double traverse = timer() - ts;
 	printf("Tree traversal takes %e seconds\n", traverse);
-	auto count = root.grow(0, false, bucket()).get();
+	count = root.grow(0, false, bucket()).get();
 	printf("Counted %li parts\n", count);
 	root.destroy(0).get();
 	FILE *fp = fopen("data.txt", "at");

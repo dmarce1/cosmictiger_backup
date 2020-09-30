@@ -20,9 +20,8 @@ list(APPEND CMAKE_MODULE_PATH "${PROJECT_SOURCE_DIR}/cmake")
 find_package(HPX REQUIRED NO_CMAKE_PACKAGE_REGISTRY)
 find_package(Silo REQUIRED)
 find_package(Boost REQUIRED)
-enable_language(CUDA)
 
-set(CMAKE_CXX_FLAGS "-g -ffast-math -march=native")
+set(CMAKE_CXX_FLAGS "-isystem /home/dmarce1/local/boost/include -DBOOST_ALL_NO_LIB -DBOOST_DISABLE_ASSERTS -O3 -std=c++17 -DNDEBUG -ffast-math -march=native")
 
 set(cosmictiger_source_files
 	src/bucket.cpp
@@ -80,7 +79,7 @@ add_hpx_executable(
 
 
 
-target_link_libraries (cosmictiger_lite boost_program_options tcmalloc hpx_lite siloh5 hwloc dl z hdf5)
+target_link_libraries (cosmictiger_lite /home/dmarce1/local/boost/lib/libboost_program_options.so tcmalloc hpx_lite siloh5 hwloc dl z hdf5)
 
 
 target_include_directories(hpx_lite PUBLIC ${PROJECT_SOURCE_DIR} ${PROJECT_SOURCE_DIR}/hpx_lite)

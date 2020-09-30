@@ -35,7 +35,7 @@ public:
 	bucket get_parts();
 	std::uint64_t get_ptr();
 	std::uint64_t grow(int, bucket&&);
-	int load_balance(int, std::uint64_t);
+	int load_balance(int, std::uint64_t, std::uint64_t);
 	tree_client migrate(hpx::id_type);
 	std::uint64_t prune(int);
 	int verify(int) const;

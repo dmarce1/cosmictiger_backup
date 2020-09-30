@@ -4,6 +4,7 @@
 #include <boost/program_options.hpp>
 
 #include <fstream>
+#include <iostream>
 
 HPX_PLAIN_ACTION(options::set, set_options_action);
 
