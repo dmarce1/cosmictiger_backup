@@ -136,6 +136,10 @@ bucket tree::get_parts() {
 
 int tree::load_balance(int stack_cnt, std::uint64_t index) {
 	if (!tptr->leaf) {
+		auto futl = tptr->children[0].load_balance(stack_cnt, index);
+		auto futr = tptr->children[1].load_balance(stack_cnt, index + tptr->child_cnt[0]);
+		futl.get();
+		futr.get();
 		const auto &localities = hpx_localities();
 		const int min_level = msb(localities.size()) - 1;
 		std::uint64_t il, ir;
@@ -170,10 +174,6 @@ int tree::load_balance(int stack_cnt, std::uint64_t index) {
 		if (newr.valid()) {
 			tptr->children[1] = newr.get();
 		}
-		auto futl = tptr->children[0].load_balance(stack_cnt, index);
-		auto futr = tptr->children[1].load_balance(stack_cnt, index + tptr->child_cnt[0]);
-		futl.get();
-		futr.get();
 	}
 	return 0;
 }
