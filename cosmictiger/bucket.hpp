@@ -36,27 +36,27 @@ struct bucket {
 	public:
 		/**/DEFAULT_CLASS_MEMBERS(iterator)
 		;
-		particle operator*() const {
+		inline particle operator*() const {
 			assert(ptr);
 			return ptr->data[off];
 		}
-		particle& operator*() {
+		inline particle& operator*() {
 			assert(ptr);
 			return ptr->data[off];
 		}
-		particle* operator->() {
+		inline particle* operator->() {
 			return &(ptr->data[off]);
 		}
-		const particle* operator->() const {
+		inline const particle* operator->() const {
 			return &(ptr->data[off]);
 		}
-		bool operator==(const iterator &other) const {
+		inline bool operator==(const iterator &other) const {
 			return (ptr == other.ptr) && (off == other.off);
 		}
-		bool operator!=(const iterator &other) const {
+		inline bool operator!=(const iterator &other) const {
 			return !(*this == other);
 		}
-		iterator operator++() {
+		inline iterator operator++() {
 			assert(ptr);
 			off++;
 			if (off == CUP_SIZE && ptr->next) {
@@ -65,7 +65,7 @@ struct bucket {
 			}
 			return *this;
 		}
-		iterator operator++(int) {
+		inline iterator operator++(int) {
 			return ++(*this);
 		}
 		friend class bucket;
@@ -75,26 +75,26 @@ struct bucket {
 	public:
 		/**/DEFAULT_CLASS_MEMBERS(const_iterator)
 		;
-		const_iterator(iterator i) {
+		inline const_iterator(iterator i) {
 			iter = i;
 		}
-		particle operator*() const {
+		inline particle operator*() const {
 			return *iter;
 		}
-		const particle* operator->() const {
+		inline const particle* operator->() const {
 			return iter.operator->();
 		}
-		bool operator==(const const_iterator &other) const {
+		inline bool operator==(const const_iterator &other) const {
 			return (iter == other.iter);
 		}
-		bool operator!=(const const_iterator &other) const {
+		inline bool operator!=(const const_iterator &other) const {
 			return !(*this == other);
 		}
-		const_iterator operator++() {
+		inline const_iterator operator++() {
 			iter++;
 			return *this;
 		}
-		const_iterator operator++(int) {
+		inline const_iterator operator++(int) {
 			return ++(*this);
 		}
 		friend class bucket;
@@ -161,10 +161,8 @@ public:
 	inline iterator remove(iterator iter) {
 		assert(start.ptr);
 		assert(sz >= 0);
-		iterator last = stop;
-		last.off--;
-		*iter = *last;
 		stop.off--;
+		*iter = *stop;
 		sz--;
 		if (stop.off == 0) {
 			assert(stop.ptr);
