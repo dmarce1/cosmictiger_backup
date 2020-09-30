@@ -52,10 +52,12 @@ int hpx_main(int argc, char *argv[]) {
 	printf("Growing\n");
 	root.grow(0, false, bucket()).get();
 	printf("Grown\n");
-	std::uint64_t chunk_size = 1;
+	std::uint64_t chunk_size = 64;
 	std::uint64_t count = 1;
 	for (std::uint64_t i = 0; i < opts.problem_size; i += chunk_size) {
+		chunk_size=std::min(std::uint64_t(2)*chunk_size,std::uint64_t(64*1024*1024));
 		bucket these_parts;
+	//	printf( "%li to %li\n", i, i + chunk_size );
 		for (std::uint64_t j = 0; j < chunk_size; j++) {
 			if (parts.size()) {
 				these_parts.insert(parts.front());
@@ -69,10 +71,6 @@ int hpx_main(int argc, char *argv[]) {
 		auto ts = timer();
 		count = root.grow(0, false, std::move(these_parts)).get();
 		printf("Counted %li parts %e s\n", count, timer() - ts);
-		chunk_size *= 2;
-		if( chunk_size > 64*1024*1024 ) {
-			chunk_size = 64*1024*1024;
-		}
 	}
 	printf("Grown\n");
 	root.load_balance(0, false, 0, opts.problem_size).get();
