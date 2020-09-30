@@ -17,8 +17,7 @@ tree_dir::tree_dir() {
 	nz = 1 << (level - 2);
 }
 
-void tree_dir::add_tree_client(const tree_client &client, box_id_type id) {
-	const auto box = box_id_to_range(id);
+void tree_dir::add_tree_client(const tree_client &client, const range& box) {
 	nodes[index(range_center(box))] = client;
 }
 

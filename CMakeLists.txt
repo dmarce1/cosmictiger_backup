@@ -56,19 +56,6 @@ set(cosmictiger_header_files
 )
 
 
-add_library(hpx_lite 
-	hpx_lite/src/hpx.cpp
-	hpx_lite/src/id_type.cpp
-	hpx_lite/src/thread.cpp
-	hpx_lite/src/future.cpp
-	hpx_lite/src/mutex.cpp
-	hpx_lite/src/serialize.cpp
-)
-
-add_executable( cosmictiger_lite
-    ${cosmictiger_source_files}
-)
-
 add_hpx_executable(
   cosmictiger
   DEPENDENCIES
@@ -81,19 +68,8 @@ add_hpx_executable(
 
 
 
-target_link_libraries (cosmictiger_lite boost_program_options tcmalloc hpx_lite siloh5 hwloc dl z hdf5)
-
-
-target_include_directories(hpx_lite PUBLIC ${PROJECT_SOURCE_DIR} ${PROJECT_SOURCE_DIR}/hpx_lite)
 target_include_directories(cosmictiger PUBLIC ${PROJECT_SOURCE_DIR})
 target_compile_options(cosmictiger PUBLIC "-DUSE_HPX")
-target_include_directories(cosmictiger_lite PUBLIC ${PROJECT_SOURCE_DIR} ${PROJECT_SOURCE_DIR}/hpx_lite)
-target_compile_options(cosmictiger_lite PUBLIC "-DHPX_LITE")
-target_compile_options(cosmictiger_lite PRIVATE $<$<COMPILE_LANGUAGE:CUDA>:
-                       --gpu-architecture=compute_75;
-						-Xptxas -O3 --use_fast_math ;
-						-v
-                        >)
 target_compile_options(cosmictiger PRIVATE $<$<COMPILE_LANGUAGE:CUDA>:
                        --gpu-architecture=compute_75;
                         >)

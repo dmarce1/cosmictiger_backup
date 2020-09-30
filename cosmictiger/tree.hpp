@@ -23,7 +23,7 @@ class tree: public hpx::components::managed_component_base<tree> {
 
 public:
 	tree();
-	tree(box_id_type id);
+	tree(const range&, int);
 	tree(const tree&);
 	~tree();
 	tree_dir build_tree_dir(tree_client) const;

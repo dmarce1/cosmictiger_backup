@@ -25,7 +25,7 @@ class tree_dir {
 public:
 	tree_dir();
 
-	void add_tree_client(const tree_client&, box_id_type id);
+	void add_tree_client(const tree_client&, const range& box);
 
 	tree_dir& merge(const tree_dir &other);
 

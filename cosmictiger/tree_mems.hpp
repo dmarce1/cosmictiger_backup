@@ -11,19 +11,20 @@
 
 struct tree_mems {
 	bucket parts;
+	range box;
 	std::array<tree_client, NCHILD> children;
 	tree_client parent;
-	box_id_type boxid;
 	std::array<std::uint64_t, NCHILD> child_cnt;
 	mutex_type mtx;
 	std::uint8_t leaf;
-
+	std::uint8_t level;
 
 	tree_mems& operator=(const tree_mems &other) {
 		parts = other.parts;
 		children = other.children;
 		parent = other.parent;
-		boxid = other.boxid;
+		box = other.box;
+		level = other.level;
 		child_cnt = other.child_cnt;
 		leaf = other.leaf;
 		return *this;
@@ -33,11 +34,13 @@ struct tree_mems {
 	void serialize(A &&arc, unsigned) {
 	//	printf( "Serialize\n");
 		arc & parts;
+		arc & box;
 		arc & children;
 		arc & parent;
 		arc & child_cnt;
-		arc & boxid;
+		arc & box;
 		arc & leaf;
+		arc & level;
 	}
 };
 
