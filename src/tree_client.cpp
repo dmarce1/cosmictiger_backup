@@ -48,7 +48,11 @@ tree_client::tree_client(hpx::id_type myid, std::uint64_t local_ptr) {
 }
 
 hpx::future<bucket> tree_client::get_parts() const {
-	return hpx::async < tree::get_parts_action > (id);
+	if (hpx::get_colocation_id(id).get() != hpx::find_here()) {
+		return hpx::async < tree::get_parts_action > (id);
+	} else {
+		return hpx::make_ready_future(reinterpret_cast<tree*>(ptr)->get_parts());
+	}
 }
 
 hpx::future<std::uint64_t> tree_client::prune(int stack_cnt) const {
@@ -91,7 +95,13 @@ hpx::future<int> tree_client::verify(int stack_cnt) const {
 }
 
 hpx::future<tree_client> tree_client::migrate(hpx::id_type locality) const {
-	return hpx::async < tree::migrate_action > (id, std::move(locality));
+
+	if (hpx::get_colocation_id(id).get() != hpx::find_here()) {
+		return hpx::async < tree::migrate_action > (id, std::move(locality));
+	} else {
+		return hpx::make_ready_future(reinterpret_cast<tree*>(ptr)->migrate(std::move(locality)));
+	}
+
 }
 
 hpx::future<int> tree_client::destroy(int stack_cnt) const {
