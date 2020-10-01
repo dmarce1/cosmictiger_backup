@@ -9,8 +9,9 @@
 #define COSMICTIGER_TREE_CLIENT_HPP_
 
 
-class family_check;
+#include <cosmictiger/bucket.hpp>
 
+class tree;
 
 class tree_client {
 	hpx::id_type id;

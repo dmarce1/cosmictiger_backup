@@ -10,7 +10,11 @@
 class tree_mems;
 class family_check;
 class tree_client;
-class tree_dir;
+
+
+#include <cosmictiger/tree_client.hpp>
+#include <cosmictiger/tree_dir.hpp>
+
 
 #define TREE_OVERFLOW (0x1)
 #define TREE_UNDERFLOW (0x2)
@@ -23,10 +27,10 @@ class tree: public hpx::components::managed_component_base<tree> {
 
 public:
 	tree();
-	tree(const range&, int);
+	tree(box_id_type, const range&, int);
 	tree(const tree&);
 	~tree();
-//	tree_dir build_tree_dir(tree_client) const;
+	tree_dir build_tree_dir(tree_client) const;
 	void create_children();
 	int destroy(int);
 	std::uint64_t drift(int, int, tree_client, tree_client, float dt);
@@ -40,7 +44,7 @@ public:
 	std::uint64_t prune(int);
 	int verify(int) const;
 	std::size_t size() const;
-//	/**/HPX_DEFINE_COMPONENT_ACTION(tree,build_tree_dir);
+	/**/HPX_DEFINE_COMPONENT_ACTION(tree,build_tree_dir);
 	/**/HPX_DEFINE_COMPONENT_ACTION(tree,destroy);
 	/**/HPX_DEFINE_COMPONENT_ACTION(tree,drift);
 	/**/HPX_DEFINE_COMPONENT_ACTION(tree,find_home_parent);
@@ -59,5 +63,7 @@ public:
 
 };
 
-#include <cosmictiger/tree_client.hpp>
+
+
+#include <cosmictiger/tree_dir_impl.hpp>
 #include <cosmictiger/tree_mems.hpp>

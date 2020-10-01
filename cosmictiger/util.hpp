@@ -10,8 +10,11 @@
 
 #include <cstdint>
 
-inline int msb(std::uint64_t i) {
-	return 64 - __builtin_clzll(i);
+inline int msb(int i) {
+	return 63 - __builtin_clzll(i);
 }
 
+inline int bits_to_level(int i) {
+	return msb(i - 1) + 1;
+}
 #endif /* COSMICTIGER_UTIL_HPP_ */

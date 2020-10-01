@@ -10,7 +10,7 @@
 
 #include <cosmictiger/defs.hpp>
 #include <cosmictiger/range.hpp>
-#include <cosmictiger/tree.hpp>
+#include <cosmictiger/tree_client.hpp>
 
 
 #include <unordered_map>
@@ -34,35 +34,12 @@ public:
 
 	HPX_SERIALIZATION_SPLIT_MEMBER();
 	template<class A>
-	void load(A &&arc, unsigned) {
-		arc & nx;
-		arc & ny;
-		arc & nz;
-		arc & level;
-		int sz;
-		arc & sz;
-		for (int i = 0; i < sz; i++) {
-			int j;
-			tree_client c;
-			arc & j;
-			arc & c;
-			nodes[j] = c;
-		}
-	}
-	template<class A>
-	void save(A &&arc, unsigned) const {
-		arc & nx;
-		arc & ny;
-		arc & nz;
-		arc & level;
-		int sz = nodes.size();
-		arc & sz;
-		for (auto i : nodes) {
-			arc & i.first;
-			arc & i.second;
-		}
-	}
+	void load(A &&arc, unsigned);
 
+	template<class A>
+	void save(A &&arc, unsigned) const;
 };
+
+
 
 #endif /* COSMICTIGER_TREE_DIR_HPP_ */

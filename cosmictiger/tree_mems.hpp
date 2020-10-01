@@ -8,6 +8,7 @@
 #ifndef COSMICTIGER_TREE_MEMS_HPP_
 #define COSMICTIGER_TREE_MEMS_HPP_
 
+#include <cosmictiger/range.hpp>
 
 struct tree_mems {
 	bucket parts;
@@ -15,6 +16,7 @@ struct tree_mems {
 	std::array<tree_client, NCHILD> children;
 	tree_client parent;
 	std::array<std::uint64_t, NCHILD> child_cnt;
+	box_id_type id;
 	std::atomic<int> lock;
 	std::uint8_t leaf;
 	std::uint8_t level;
@@ -33,12 +35,14 @@ struct tree_mems {
 		level = other.level;
 		child_cnt = other.child_cnt;
 		leaf = other.leaf;
+		id = other.id;
 		return *this;
 	}
 
 	template<class A>
 	void serialize(A &&arc, unsigned) {
 	//	printf( "Serialize\n");
+		arc & id;
 		arc & parts;
 		arc & box;
 		arc & children;

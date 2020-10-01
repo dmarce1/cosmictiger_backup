@@ -11,7 +11,7 @@
 #include <cosmictiger/util.hpp>
 
 tree_dir::tree_dir() {
-	level = msb(hpx_localities().size()) - 1;
+	level = bits_to_level(hpx_localities().size());
 	nx = 1 << level;
 	ny = 1 << (level - 1);
 	nz = 1 << (level - 2);
@@ -53,6 +53,9 @@ hpx::future<void> tree_dir::find_home(int stack_cnt, bucket &&parts) {
 		};
 		futs.push_back(hpx::async(std::move(func), i.first, std::move(i.second)));
 	}
-	return hpx::when_all(futs.begin(), futs.end());
+	return hpx::when_all(futs.begin(), futs.end()).then([](hpx::future<std::vector<hpx::future<int>>> fut) {
+		auto futs = fut.get();
+		hpx::wait_all(futs.begin(), futs.end());
+	});
 }
 

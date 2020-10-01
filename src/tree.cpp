@@ -9,6 +9,7 @@
 
 #ifdef HPX_LITE
 HPX_REGISTER_MINIMAL_COMPONENT_FACTORY(hpx::components::managed_component<tree>, tree);
+using build_tree_dir_type = tree::build_tree_dir_action;
 using destroy_type = tree::destroy_action;
 using drift_type = tree::drift_action;
 using find_home_parent_type = tree::find_home_parent_action;
@@ -20,6 +21,7 @@ using verify_type = tree::verify_action;
 using get_ptr_type = tree::get_ptr_action;
 using get_parts_type = tree::get_parts_action;
 using migrate_type = tree::migrate_action;
+HPX_REGISTER_ACTION(build_tree_dir_type);
 HPX_REGISTER_ACTION(destroy_type);
 HPX_REGISTER_ACTION(drift_type);
 HPX_REGISTER_ACTION(find_home_parent_type);
@@ -54,11 +56,12 @@ tree::tree() {
 	tptr = new tree_mems;
 }
 
-tree::tree(const range &box, int level) {
+tree::tree(box_id_type id, const range &box, int level) {
 	tptr = new tree_mems;
 	tptr->box = box;
 	tptr->leaf = true;
 	tptr->level = level;
+	tptr->id = id;
 }
 
 tree::tree(const tree &other) {
@@ -70,27 +73,41 @@ tree::~tree() {
 	delete tptr;
 }
 
-//tree_dir tree::build_tree_dir(tree_client self) const {
-//	const int min_level = msb(hpx_localities().size()) - 1;
-//	if (tptr->level == min_level) {
-//		tree_dir dir;
-//		dir.add_tree_client(self, tptr->box);
-//		return dir;
-//	} else {
-//		auto futl = hpx::async < build_tree_dir_action > (tptr->children[0].get_id(), tptr->children[0]);
-//		auto futr = hpx::async < build_tree_dir_action > (tptr->children[1].get_id(), tptr->children[1]);
-//		tree_dir left = futl.get();
-//		return left.merge(futr.get());
-//	}
-//}
+tree_dir tree::build_tree_dir(tree_client self) const {
+	const int min_level = bits_to_level(hpx_localities().size());
+	if (tptr->level == min_level) {
+		tree_dir dir;
+		dir.add_tree_client(self, tptr->box);
+		return dir;
+	} else {
+		auto futl = hpx::async < build_tree_dir_action > (tptr->children[0].get_id(), tptr->children[0]);
+		auto futr = hpx::async < build_tree_dir_action > (tptr->children[1].get_id(), tptr->children[1]);
+		tree_dir left = futl.get();
+		return left.merge(futr.get());
+	}
+}
 
 void tree::create_children() {
 	auto boxl = tptr->box;
 	auto boxr = tptr->box;
 	const auto dim = tptr->level % NDIM;
 	boxl.max[dim] = boxr.min[dim] = 0.5 * (tptr->box.min[dim] + tptr->box.max[dim]);
-	auto futl = hpx::new_ < tree > (hpx::find_here(), boxl, tptr->level + 1);
-	auto futr = hpx::new_ < tree > (hpx::find_here(), boxr, tptr->level + 1);
+	const auto &localities = hpx_localities();
+	const int min_level = bits_to_level(localities.size());
+	const int child_level = tptr->level + 1;
+	std::uint64_t il, ir;
+	if (child_level <= min_level) {
+		const auto total_nodes = (1 << child_level);
+		const auto idl = (tptr->id << std::uint64_t(1));
+		const auto idr = (tptr->id << std::uint64_t(1)) + std::uint64_t(1);
+		il = (idl - total_nodes) * localities.size() / total_nodes;
+		ir = (idr - total_nodes) * localities.size() / total_nodes;
+	} else {
+		il = hpx::get_locality_id();
+		ir = hpx::get_locality_id();
+	}
+	auto futl = hpx::new_ < tree > (localities[il], (tptr->id << std::uint64_t(1)), boxl, tptr->level + 1);
+	auto futr = hpx::new_ < tree > (localities[ir], (tptr->id << std::uint64_t(1)) + std::uint64_t(1), boxr, tptr->level + 1);
 	tptr->leaf = false;
 	auto id_left = futl.get();
 	auto id_right = futr.get();
@@ -122,7 +139,7 @@ std::uint64_t tree::get_ptr() {
 }
 
 std::uint64_t tree::grow(int stack_cnt, bucket &&parts) {
-	const int min_level = msb(hpx_localities().size()) - 1;
+	const int min_level = bits_to_level(hpx_localities().size());
 	if (tptr->leaf) {
 		if (tptr->level < min_level || parts.size() + tptr->parts.size() > opts.bucket_size) {
 			create_children();
@@ -173,38 +190,30 @@ int tree::load_balance(int stack_cnt, std::uint64_t index, std::uint64_t total) 
 		futl.get();
 		futr.get();
 		const auto &localities = hpx_localities();
-		const int min_level = msb(localities.size()) - 1;
+		const int min_level = bits_to_level(localities.size());
 		std::uint64_t il, ir;
 		const int child_level = tptr->level + 1;
 		if (child_level > min_level) {
 			il = index * std::uint64_t(localities.size()) / total;
 			ir = (index + tptr->child_cnt[0]) * std::uint64_t(localities.size()) / total;
-		} else {
-			const auto total_nodes = (1 << child_level);
-			const auto dim = tptr->level % NDIM;
-			const auto xl = 0.75 * tptr->box.min[dim] + 0.25 * tptr->box.max[dim];
-			const auto xr = 0.25 * tptr->box.min[dim] + 0.75 * tptr->box.max[dim];
-			const auto x0 = (1 << (tptr->level / NDIM));
-			il = std::uint64_t(xl * x0) * localities.size() / total_nodes;
-			ir = std::uint64_t(xr * x0) * localities.size() / total_nodes;
-		}
-		assert(il >= 0);
-		assert(il < localities.size());
-		assert(ir >= 0);
-		assert(ir < localities.size());
-		hpx::future<tree_client> newl;
-		hpx::future<tree_client> newr;
-		if (il != hpx::get_locality_id()) {
-			newl = tptr->children[0].migrate(localities[il]);
-		}
-		if (ir != hpx::get_locality_id()) {
-			newr = tptr->children[1].migrate(localities[ir]);
-		}
-		if (newl.valid()) {
-			tptr->children[0] = newl.get();
-		}
-		if (newr.valid()) {
-			tptr->children[1] = newr.get();
+			assert(il >= 0);
+			assert(il < localities.size());
+			assert(ir >= 0);
+			assert(ir < localities.size());
+			hpx::future<tree_client> newl;
+			hpx::future<tree_client> newr;
+			if (il != hpx::get_locality_id()) {
+				newl = tptr->children[0].migrate(localities[il]);
+			}
+			if (ir != hpx::get_locality_id()) {
+				newr = tptr->children[1].migrate(localities[ir]);
+			}
+			if (newl.valid()) {
+				tptr->children[0] = newl.get();
+			}
+			if (newr.valid()) {
+				tptr->children[1] = newr.get();
+			}
 		}
 	}
 	return 0;
@@ -257,7 +266,7 @@ std::size_t tree::size() const {
 }
 
 int tree::verify(int stack_cnt) const {
-	const int min_level = msb(hpx_localities().size()) - 1;
+	const int min_level = bits_to_level(hpx_localities().size());
 	int rc = 0;
 	if (tptr->leaf) {
 		if (size() > opts.bucket_size) {

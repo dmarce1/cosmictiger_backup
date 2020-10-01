@@ -47,17 +47,18 @@ int hpx_main(int argc, char *argv[]) {
 		root_box.min[dim] = 0.0;
 		root_box.max[dim] = 1.0;
 	}
-	auto root_id = hpx::new_ < tree > (hpx::find_here(), root_box, 0).get();
+	auto root_id = hpx::new_ < tree > (hpx::find_here(), 1, root_box, 0).get();
 	auto root = tree_client(std::move(root_id), hpx::async < tree::get_ptr_action > (root_id).get());
 	printf("Growing\n");
 	root.grow(0, false, bucket()).get();
-	printf("Grown\n");
+	printf("Building directory\n");
+	auto dir = hpx::async < tree::build_tree_dir_action > (root, root).get();
 	std::uint64_t chunk_size = 64;
 	std::uint64_t count = 1;
 	for (std::uint64_t i = 0; i < opts.problem_size; i += chunk_size) {
-		chunk_size=std::min(std::uint64_t(2)*chunk_size,std::uint64_t(32*1024*1024));
+		chunk_size = std::min(std::uint64_t(2) * chunk_size, std::uint64_t(32 * 1024 * 1024));
 		bucket these_parts;
-	//	printf( "%li to %li\n", i, i + chunk_size );
+		//	printf( "%li to %li\n", i, i + chunk_size );
 		for (std::uint64_t j = 0; j < chunk_size; j++) {
 			if (parts.size()) {
 				these_parts.insert(parts.front());
