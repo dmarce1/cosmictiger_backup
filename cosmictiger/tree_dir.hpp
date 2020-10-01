@@ -12,7 +12,6 @@
 #include <cosmictiger/range.hpp>
 #include <cosmictiger/tree_client.hpp>
 
-
 #include <unordered_map>
 
 class tree_dir {
@@ -23,14 +22,45 @@ class tree_dir {
 	int level;
 	int index(int x, int y, int z) const;
 	int index(const vect<double> &x) const;
+	std::vector<hpx::future<void>> futures;
+	mutex_type mtx;
 public:
 	tree_dir();
 
-	void add_tree_client(const tree_client&, const range& box);
+	tree_dir(tree_dir &&other) {
+		*this = std::move(other);
+	}
+
+	tree_dir& operator=(tree_dir &&other) {
+		nodes = std::move(other.nodes);
+		nx = other.nx;
+		ny = other.ny;
+		nz = other.nz;
+		return *this;
+	}
+	tree_dir(const tree_dir &other) {
+		*this = other;
+	}
+
+	tree_dir& operator=(const tree_dir &other) {
+		nodes = other.nodes;
+		nx = other.nx;
+		ny = other.ny;
+		nz = other.nz;
+		return *this;
+	}
+
+	int size() const {
+		return nodes.size();
+	}
+
+	void add_tree_client(const tree_client&, const range &box);
 
 	tree_dir& merge(const tree_dir &other);
 
-	hpx::future<void> find_home(int, bucket &&p);
+	void find_home(int, bucket &&p);
+
+	void retire_futures();
 
 	HPX_SERIALIZATION_SPLIT_MEMBER();
 	template<class A>
@@ -39,7 +69,5 @@ public:
 	template<class A>
 	void save(A &&arc, unsigned) const;
 };
-
-
 
 #endif /* COSMICTIGER_TREE_DIR_HPP_ */

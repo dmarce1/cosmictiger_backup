@@ -31,12 +31,13 @@ int hpx_main(int argc, char *argv[]) {
 //	for (auto i = test.begin(); i != test.end(); i++) {
 //		printf( "%e\n", pos_to_double(i->x[0]) );
 //	}
-//	srand (time(NULL));
+	srand (1234);
 	bucket parts;
 	for (int i = 0; i < opts.problem_size; i++) {
 		particle p;
 		p.x = double_to_pos(rand_unit_vect());
 		p.v = rand_unit_vect() * std::pow(std::max(opts.problem_size / opts.bucket_size, std::uint64_t(1)), -1.0 / 3.0) / 8.0;
+//		printf( "%e %e %e\n", p.v[0],  p.v[1],  p.v[2]);
 		p.out = 0;
 		p.step = 0;
 		p.group = 0;

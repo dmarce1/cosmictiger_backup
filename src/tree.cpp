@@ -38,6 +38,62 @@ HPX_REGISTER_ACTION(migrate_type);
 HPX_REGISTER_COMPONENT(hpx::components::managed_component<tree>, tree);
 #endif
 
+static std::shared_ptr<tree_dir> directory;
+
+void tree_broadcast_directory(const tree_dir &dir);
+void tree_cleanup();
+void tree_complete_drift();
+
+HPX_PLAIN_ACTION (tree_broadcast_directory);
+HPX_PLAIN_ACTION (tree_complete_drift);
+HPX_PLAIN_ACTION (tree_cleanup);
+
+void tree_broadcast_directory(const tree_dir &dir) {
+	const auto &localities = hpx_localities();
+	const int il = ((hpx::get_locality_id() + 1) << 1) - 1;
+	const int ir = ((hpx::get_locality_id() + 1) << 1);
+	std::vector<hpx::future<void>> futs;
+	if (il < localities.size()) {
+		futs.push_back(hpx::async < tree_broadcast_directory_action > (localities[il], dir));
+	}
+	if (ir < localities.size()) {
+		futs.push_back(hpx::async < tree_broadcast_directory_action > (localities[ir], dir));
+	}
+//	printf( "Setting dir %i\n", dir.size());
+	directory = std::make_shared < tree_dir > (dir);
+	hpx::wait_all(futs.begin(), futs.end());
+}
+
+void tree_complete_drift() {
+	const auto &localities = hpx_localities();
+	const int il = ((hpx::get_locality_id() + 1) << 1) - 1;
+	const int ir = ((hpx::get_locality_id() + 1) << 1);
+	std::vector<hpx::future<void>> futs;
+	if (il < localities.size()) {
+		futs.push_back(hpx::async < tree_complete_drift_action > (localities[il]));
+	}
+	if (ir < localities.size()) {
+		futs.push_back(hpx::async < tree_complete_drift_action > (localities[ir]));
+	}
+	directory->retire_futures();
+	hpx::wait_all(futs.begin(), futs.end());
+}
+
+void tree_cleanup() {
+	const auto &localities = hpx_localities();
+	const int il = ((hpx::get_locality_id() + 1) << 1) - 1;
+	const int ir = ((hpx::get_locality_id() + 1) << 1);
+	std::vector<hpx::future<void>> futs;
+	if (il < localities.size()) {
+		futs.push_back(hpx::async < tree_cleanup_action > (localities[il]));
+	}
+	if (ir < localities.size()) {
+		futs.push_back(hpx::async < tree_cleanup_action > (localities[ir]));
+	}
+	directory = nullptr;
+	hpx::wait_all(futs.begin(), futs.end());
+}
+
 std::string tree_verification_error(int rc) {
 	std::string error = "";
 	if (rc & TREE_OVERFLOW) {
@@ -75,16 +131,21 @@ tree::~tree() {
 
 tree_dir tree::build_tree_dir(tree_client self) const {
 	const int min_level = bits_to_level(hpx_localities().size());
+	tree_dir dir;
 	if (tptr->level == min_level) {
-		tree_dir dir;
 		dir.add_tree_client(self, tptr->box);
-		return dir;
 	} else {
 		auto futl = hpx::async < build_tree_dir_action > (tptr->children[0].get_id(), tptr->children[0]);
 		auto futr = hpx::async < build_tree_dir_action > (tptr->children[1].get_id(), tptr->children[1]);
-		tree_dir left = futl.get();
-		return left.merge(futr.get());
+		dir = futl.get();
+//		printf( "Merging\n");
+		dir.merge(futr.get());
 	}
+	if (tptr->level == 0) {
+//		printf( "Broadcasting dir\n");
+		tree_broadcast_directory(dir);
+	}
+	return dir;
 }
 
 void tree::create_children() {
@@ -130,6 +191,9 @@ int tree::destroy(int stack_cnt) {
 		tptr->children[0] = tree_client();
 		futr.get();
 		tptr->children[1] = tree_client();
+	}
+	if( tptr->level == 0 ) {
+		tree_cleanup();
 	}
 	return 0;
 }
@@ -290,3 +354,126 @@ int tree::verify(int stack_cnt) const {
 	return rc;
 }
 
+std::uint64_t tree::drift(int stack_cnt, int step, tree_client parent, tree_client self, float dt) {
+	tptr->parent = parent;
+	std::uint64_t drifted = 0;
+	if (tptr->leaf) {
+		while (tptr->lock++ != 0) {
+			tptr->lock--;
+		}
+		bucket exit_parts;
+		auto i = tptr->parts.begin();
+		while (i != tptr->parts.end()) {
+			if (step % 2 == i->step) {
+				auto x = pos_to_double(i->x);
+				const auto v = i->v;
+				x += v * dt;
+				i->x = double_to_pos(x);
+				i->step++;
+				if (!in_range(pos_to_double(i->x), tptr->box)) {
+					exit_parts.insert(*i);
+					drifted++;
+					i = tptr->parts.remove(i);
+				} else {
+					i++;
+				}
+			} else {
+				i++;
+			}
+		}
+		tptr->lock--;
+		if (exit_parts.size()) {
+			parent.find_home_parent(stack_cnt, std::move(exit_parts));
+		}
+	} else {
+		auto futl = tptr->children[0].drift(stack_cnt, true, step, self, tptr->children[0], dt);
+		auto futr = tptr->children[1].drift(stack_cnt, false, step, self, tptr->children[1], dt);
+		drifted += futl.get();
+		drifted += futr.get();
+	}
+	if (tptr->level == 0) {
+		tree_complete_drift();
+	}
+	return drifted;
+}
+
+int tree::find_home_child(int stack_cnt, bucket parts) {
+	if (tptr->leaf) {
+		while (tptr->lock++ != 0) {
+			tptr->lock--;
+		}
+		while (parts.size()) {
+			assert(in_range(pos_to_double(parts.front().x), tptr->box));
+			tptr->parts.insert(parts.front());
+			parts.remove(parts.begin());
+		}
+		tptr->lock--;
+	} else {
+		bucket l_parts;
+		bucket r_parts;
+		const auto dim = tptr->level % NDIM;
+		const auto midx = 0.5 * (tptr->box.min[dim] + tptr->box.max[dim]);
+		while (parts.size()) {
+			auto &p = parts.front();
+			const auto x = pos_to_double(p.x);
+			if (x[dim] >= midx) {
+				r_parts.insert(p);
+			} else {
+				l_parts.insert(p);
+			}
+			parts.remove(parts.begin());
+		}
+		if (l_parts.size()) {
+			assert(tptr->children[0] != tree_client());
+			tptr->children[0].find_home_child(stack_cnt, std::move(l_parts));
+		}
+		if (r_parts.size()) {
+			assert(tptr->children[1] != tree_client());
+			tptr->children[1].find_home_child(stack_cnt, std::move(r_parts));
+		}
+	}
+	return 0;
+}
+
+int tree::find_home_parent(int stack_cnt, bucket parts) {
+	const int min_level = bits_to_level(hpx_localities().size());
+	bucket p_parts;
+	bucket l_parts;
+	bucket r_parts;
+	const auto dim = tptr->level % NDIM;
+	const auto midx = 0.5 * (tptr->box.min[dim] + tptr->box.max[dim]);
+	while (parts.size()) {
+		auto &p = parts.front();
+		const auto x = pos_to_double(p.x);
+		if (!in_range(x, tptr->box)) {
+			p_parts.insert(p);
+		} else if (x[dim] >= midx) {
+			r_parts.insert(p);
+		} else {
+			l_parts.insert(p);
+		}
+		parts.remove(parts.begin());
+	}
+	if (p_parts.size()) {
+		assert(tptr->parent != tree_client());
+		if (tptr->level = min_level + 1) {
+//			for (auto i = p_parts.begin(); i != p_parts.end(); i++) {
+//				const auto x = pos_to_double(i->x);
+//				printf("Sending %e %e %e |  %e %e %e |  %e %e %e\n", x[0], x[1], x[2], tptr->box.min[0], tptr->box.min[1], tptr->box.min[2], tptr->box.max[0],
+//						tptr->box.max[1], tptr->box.max[2]);
+//			}
+			directory->find_home(stack_cnt, std::move(p_parts));
+		} else {
+			tptr->parent.find_home_parent(stack_cnt, std::move(p_parts));
+		}
+	}
+	if (l_parts.size()) {
+		assert(tptr->children[0] != tree_client());
+		tptr->children[0].find_home_child(stack_cnt, std::move(l_parts));
+	}
+	if (r_parts.size()) {
+		assert(tptr->children[1] != tree_client());
+		tptr->children[1].find_home_child(stack_cnt, std::move(r_parts));
+	}
+	return 0;
+}

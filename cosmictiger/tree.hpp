@@ -24,7 +24,6 @@ std::string tree_verification_error(int rc);
 
 class tree: public hpx::components::managed_component_base<tree> {
 	tree_mems *tptr;
-
 public:
 	tree();
 	tree(box_id_type, const range&, int);

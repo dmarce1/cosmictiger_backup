@@ -8,7 +8,9 @@
 #include <cosmictiger/defs.hpp>
 #include <cosmictiger/hpx.hpp>
 
-static std::atomic<int> lock;
+#include <cassert>
+
+static std::atomic<int> lock(0);
 static std::vector<hpx::id_type> localities;
 static bool initialized = false;
 
@@ -23,6 +25,7 @@ const std::vector<hpx::id_type>& hpx_localities() {
 		}
 		lock--;
 	}
+	assert(localities.size());
 	return localities;
 }
 
