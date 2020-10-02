@@ -50,6 +50,7 @@ HPX_PLAIN_ACTION (tree_cleanup);
 
 void tree_insert_parts(bucket&& parts) {
 	directory->find_home(0,std::move(parts));
+	directory->retire_futures();
 }
 
 void tree_broadcast_directory(const tree_dir &dir) {
@@ -271,9 +272,11 @@ int tree::load_balance(int stack_cnt, std::uint64_t index, std::uint64_t total) 
 			hpx::future<tree_client> newl;
 			hpx::future<tree_client> newr;
 			if (il != hpx::get_locality_id()) {
+//				printf( "Migrating from %i to %i\n", hpx::get_locality_id(), il);
 				newl = tptr->children[0].migrate(localities[il]);
 			}
 			if (ir != hpx::get_locality_id()) {
+//				printf( "Migrating from %i to %i\n", hpx::get_locality_id(), ir);
 				newr = tptr->children[1].migrate(localities[ir]);
 			}
 			if (newl.valid()) {

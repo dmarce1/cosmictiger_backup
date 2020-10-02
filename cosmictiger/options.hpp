@@ -7,13 +7,18 @@
 class options {
 public:
 	int bucket_size;
+	double code_to_cm;
+	double particle_mass;
 	std::uint64_t problem_size;
+	std::string input_file;
 	std::string config_file;
 
 	template<class Arc>
 	void serialize(Arc &arc, unsigned) {
+		arc & code_to_cm;
 		arc & bucket_size;
-		arc & problem_size;
+		arc & input_file;
+		arc & particle_mass;
 		arc & config_file;
 	}
 

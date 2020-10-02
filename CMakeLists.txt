@@ -21,8 +21,8 @@ find_package(HPX REQUIRED NO_CMAKE_PACKAGE_REGISTRY)
 find_package(Silo REQUIRED)
 find_package(Boost REQUIRED)
 
-#set(CMAKE_CXX_FLAGS "-isystem /home/dmarce1/local/boost/include -DBOOST_ALL_NO_LIB -DBOOST_DISABLE_ASSERTS -O3 -std=c++17 -DNDEBUG -ffast-math -march=native")
-set(CMAKE_CXX_FLAGS "-isystem /home/dmarce1/local/boost/include -DBOOST_ALL_NO_LIB -DBOOST_DISABLE_ASSERTS -g -std=c++17 -ffast-math -march=native")
+set(CMAKE_CXX_FLAGS "-isystem /home/dmarce1/local/boost/include -DBOOST_ALL_NO_LIB -DBOOST_DISABLE_ASSERTS -O3 -std=c++17 -DNDEBUG -ffast-math -march=native")
+#set(CMAKE_CXX_FLAGS "-isystem /home/dmarce1/local/boost/include -DBOOST_ALL_NO_LIB -DBOOST_DISABLE_ASSERTS -g -std=c++17 -ffast-math -march=native")
 
 set(cosmictiger_source_files
 	src/bucket.cpp

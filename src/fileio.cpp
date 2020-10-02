@@ -37,20 +37,20 @@ HPX_PLAIN_ACTION (fileio_insert_parts);
 	} \
 }
 
-void fileio_init_read(const std::string basename) {
+void fileio_init_read() {
 	auto locality = hpx::get_locality_id();
 	const int il = ((locality + 1) << 1) - 1;
 	const int ir = ((locality + 1) << 1);
 	std::vector<hpx::future<void>> futs;
 	if (il < hpx_localities().size()) {
-		futs.push_back(hpx::async < fileio_init_read_action > (hpx_localities()[il], basename));
+		futs.push_back(hpx::async < fileio_init_read_action > (hpx_localities()[il]));
 	}
 	if (ir < hpx_localities().size()) {
-		futs.push_back(hpx::async < fileio_init_read_action > (hpx_localities()[ir], basename));
+		futs.push_back(hpx::async < fileio_init_read_action > (hpx_localities()[ir]));
 	}
 
 	std::int32_t dummy;
-	std::string filename = basename + '.' + std::to_string(locality);
+	std::string filename = opts.input_file + '.' + std::to_string(locality);
 	FILE *fp = fopen(filename.c_str(), "rb");
 	if (!fp) {
 		printf("Locality %i: Unable to load %s\n", locality, filename.c_str());
@@ -61,6 +61,8 @@ void fileio_init_read(const std::string basename) {
 	FREAD_ASSERT(fread(&header, sizeof(header), 1, fp));
 	FREAD_ASSERT(fread(&dummy, sizeof(dummy), 1, fp));
 	const std::uint64_t total_parts = std::uint64_t(header.npartTotal[1]) + (std::uint64_t(header.npartTotal[2]) << std::uint64_t(32));
+	opts.problem_size = total_parts;
+	opts.particle_mass = header.mass[1];
 	if (locality = 0) {
 		printf("Reading %li particles\n", total_parts);
 		printf("Z =             %e\n", header.redshift);
@@ -75,17 +77,26 @@ void fileio_init_read(const std::string basename) {
 		FREAD_ASSERT(fread(&x, sizeof(float), 1, fp));
 		FREAD_ASSERT(fread(&y, sizeof(float), 1, fp));
 		FREAD_ASSERT(fread(&z, sizeof(float), 1, fp));
-		if (x >= 1.0 || x < 0.0) {
-			printf("Particle x out of range!\n");
+		if (x > 1.0 || x < 0.0) {
+			printf("Particle x out of range %e!\n", x);
 			abort();
 		}
-		if (y >= 1.0 || y < 0.0) {
-			printf("Particle x out of range!\n");
+		if (y > 1.0 || y < 0.0) {
+			printf("Particle y out of range %e!\n", y);
 			abort();
 		}
-		if (z >= 1.0 || z < 0.0) {
-			printf("Particle x out of range!\n");
+		if (z > 1.0 || z < 0.0) {
+			printf("Particle z out of range %e!\n", z);
 			abort();
+		}
+		if( x == 1.0 ) {
+			x = 0.0;
+		}
+		if( y == 1.0 ) {
+			y = 0.0;
+		}
+		if( z == 1.0 ) {
+			z = 0.0;
 		}
 		particle part;
 		part.x[0] = x;
