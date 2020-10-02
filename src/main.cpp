@@ -9,7 +9,6 @@
 #include <ctime>
 
 int hpx_main(int argc, char *argv[]) {
-	options opts;
 	opts.process_options(argc, argv);
 
 	printf("Creating root node\n");
@@ -40,16 +39,26 @@ int hpx_main(int argc, char *argv[]) {
 			printf("%s\n", tree_verification_error(rc).c_str());
 		}
 
-		printf("inserting parts\n");
 		ndistrib = fileio_insert_parts(chunk_size);
-		printf("growing tree\n");
 		ntotal = root.grow(0, false, bucket()).get();
-		printf("%li loaded\n", ntotal);
 		chunk_size = std::min(2 * chunk_size, std::uint64_t(32 * 1024 * 1024));
 	} while (ndistrib > 0);
+	printf("%li loaded\n", ntotal);
 	printf("load balancing\n");
 	root.load_balance(0, false, 0, ntotal).get();
 	printf("Data loaded and distributed in %e seconds\n", timer() - ts);
+
+//	int step = 0;
+//	auto dtime = timer();
+//	std::uint64_t cnt = root.drift(0, false, step++, tree_client(), root, 0.01).get();
+//	printf("Pruning\n");
+//	root.prune(0, false).get();
+//	printf("Balancing %li particles\n", opts.problem_size);
+//	root.load_balance(0, false, 0, opts.problem_size).get();
+//	double pct_drift = double(cnt) / opts.problem_size * 100;
+//	dtime = timer() - dtime;
+//	printf("Drift takes %e seconds %f%% drifted\n", dtime, pct_drift);
+
 	return hpx::finalize();
 }
 //
