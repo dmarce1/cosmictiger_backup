@@ -4,6 +4,8 @@
 #include <cosmictiger/rand.hpp>
 #include <cosmictiger/timer.hpp>
 #include <cosmictiger/tree.hpp>
+#include <cosmictiger/fileio.hpp>
+
 
 #include <ctime>
 
@@ -53,7 +55,7 @@ int hpx_main(int argc, char *argv[]) {
 	printf("Growing\n");
 	root.grow(0, false, bucket()).get();
 	printf("Building directory\n");
-	auto dir = hpx::async < tree::build_tree_dir_action > (root, root).get();
+	auto dir = hpx::async < tree::build_tree_dir_action > (root_id, root).get();
 	std::uint64_t chunk_size = 64;
 	std::uint64_t count = 1;
 	for (std::uint64_t i = 0; i < opts.problem_size; i += chunk_size) {

@@ -26,6 +26,7 @@ set(CMAKE_CXX_FLAGS "-isystem /home/dmarce1/local/boost/include -DBOOST_ALL_NO_L
 
 set(cosmictiger_source_files
 	src/bucket.cpp
+	src/fileio.cpp
 	src/hpx.cpp
 	src/main.cpp
 	src/options.cpp
@@ -41,6 +42,7 @@ set(cosmictiger_header_files
 	cosmictiger/bucket.hpp
 	cosmictiger/cuda_export.hpp
 	cosmictiger/defs.hpp
+	cosmictiger/fileio.hpp
 	cosmictiger/hpx.hpp
 	cosmictiger/options.hpp
 	cosmictiger/particle.hpp

@@ -62,7 +62,7 @@ public:
 
 };
 
-
+void tree_insert_parts(bucket&& parts);
 
 #include <cosmictiger/tree_dir_impl.hpp>
 #include <cosmictiger/tree_mems.hpp>
