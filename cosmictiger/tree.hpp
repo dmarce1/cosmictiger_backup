@@ -23,6 +23,19 @@ class tree_client;
 
 std::string tree_verification_error(int rc);
 
+struct multipole_return {
+	check_info info;
+	range prange;
+	std::uint64_t nactive;
+
+	template<class A>
+	void serialize( A&& arc, unsigned ) {
+		arc & info;
+		arc & nactive;
+		arc & prange;
+	}
+};
+
 class tree: public hpx::components::managed_component_base<tree> {
 	tree_mems *tptr;
 public:
@@ -41,7 +54,8 @@ public:
 	bucket get_parts();
 	std::uint64_t get_ptr();
 	std::uint64_t grow(int, bucket&&);
-	int load_balance(int, std::uint64_t, std::uint64_t);
+	multipole_return compute_multipoles(int, int);
+	int load_balance(int stack_cnt, std::uint64_t index, std::uint64_t total);
 	tree_client migrate(hpx::id_type);
 	std::uint64_t prune(int);
 	int verify(int) const;
@@ -53,6 +67,7 @@ public:
 	/**/HPX_DEFINE_COMPONENT_ACTION(tree,find_home_child);
 	/**/HPX_DEFINE_COMPONENT_ACTION(tree,grow);
 	/**/HPX_DEFINE_COMPONENT_ACTION(tree,load_balance);
+	/**/HPX_DEFINE_COMPONENT_ACTION(tree,compute_multipoles);
 	/**/HPX_DEFINE_COMPONENT_ACTION(tree,prune);
 	/**/HPX_DEFINE_COMPONENT_ACTION(tree,verify);
 	/**/HPX_DEFINE_COMPONENT_DIRECT_ACTION(tree,get_child_checks);

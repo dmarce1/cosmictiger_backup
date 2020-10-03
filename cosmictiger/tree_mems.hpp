@@ -12,6 +12,7 @@
 #include <cosmictiger/range.hpp>
 
 struct tree_mems {
+	multi_src multi;
 	bucket parts;
 	range box;
 	std::array<check_info, NCHILD> child_info;
@@ -33,6 +34,7 @@ struct tree_mems {
 		for (auto i = other.parts.cbegin(); i != other.parts.cend(); i++) {
 			parts.insert(*i);
 		}
+		multi = other.multi;
 		box = other.box;
 		child_info = other.child_info;
 		parent = other.parent;
@@ -45,6 +47,7 @@ struct tree_mems {
 
 	template<class A>
 	void serialize(A &&arc, unsigned) {
+		arc & multi;
 		arc & parts;
 		arc & box;
 		arc & child_info;

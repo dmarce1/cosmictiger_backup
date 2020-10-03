@@ -8,14 +8,13 @@
 #ifndef COSMICTIGER_TREE_CLIENT_HPP_
 #define COSMICTIGER_TREE_CLIENT_HPP_
 
-
 #include <cosmictiger/bucket.hpp>
 #include <cosmictiger/future_data.hpp>
 
 class tree;
 class check_item;
+class multipole_return;
 using check_pair = std::pair<check_item,check_item>;
-
 
 class tree_client {
 	hpx::id_type id;
@@ -35,19 +34,19 @@ public:
 	std::uint64_t get_ptr() const {
 		return ptr;
 	}
-	tree_client(hpx::id_type myid, tree* local_ptr);
+	tree_client(hpx::id_type myid, tree *local_ptr);
 	tree_client(hpx::id_type myid, std::uint64_t local_ptr);
 	operator hpx::id_type() const {
 		return id;
 	}
-	bool operator!=( const tree_client& other ) const {
+	bool operator!=(const tree_client &other) const {
 		return id != other.id;
 	}
-	bool operator==( const tree_client& other ) const {
+	bool operator==(const tree_client &other) const {
 		return id == other.id;
 	}
 	hpx::future<int> destroy(int) const;
-	hpx::future<std::uint64_t> drift(int, bool, int,tree_client, tree_client, float dt) const;
+	hpx::future<std::uint64_t> drift(int, bool, int, tree_client, tree_client, float dt) const;
 	int find_home_parent(int, bucket&&) const;
 	int find_home_child(int, bucket&&) const;
 	hpx::future<check_pair> get_child_checks() const;
@@ -55,6 +54,7 @@ public:
 	hpx::future<std::uint64_t> grow(int, bool, bucket&&) const;
 	hpx::future<tree_client> migrate(hpx::id_type) const;
 	hpx::future<int> load_balance(int, bool left, std::uint64_t, std::uint64_t) const;
+	hpx::future<multipole_return> compute_multipoles(int, bool left, int) const;
 	hpx::future<std::uint64_t> prune(int, bool) const;
 	hpx::future<int> verify(int, bool) const;
 	future_data<std::vector<part_pos>> get_positions() const;
@@ -67,7 +67,5 @@ public:
 		arc & ptr;
 	}
 };
-
-
 
 #endif /* COSMICTIGER_TREE_CLIENT_HPP_ */

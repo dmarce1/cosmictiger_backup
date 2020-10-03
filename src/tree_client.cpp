@@ -91,6 +91,20 @@ hpx::future<std::uint64_t> tree_client::grow(int stack_cnt, bool left, bucket &&
 	}
 }
 
+hpx::future<multipole_return> tree_client::compute_multipoles(int stack_cnt, bool left, int rung) const {
+	if (hpx::get_colocation_id(id).get() != hpx::find_here()) {
+		return hpx::async < tree::compute_multipoles_action > (id, 0, rung);
+	} else {
+		if (left) {
+			return thread_handler<multipole_return>([this,rung](int stack_cnt) {
+				return reinterpret_cast<tree*>(ptr)->compute_multipoles(stack_cnt, rung);
+			}, stack_cnt);
+		} else {
+			return hpx::make_ready_future(reinterpret_cast<tree*>(ptr)->compute_multipoles(stack_cnt, rung));
+		}
+	}
+}
+
 hpx::future<int> tree_client::load_balance(int stack_cnt, bool left, std::uint64_t cnt, std::uint64_t cnt2) const {
 	if (hpx::get_colocation_id(id).get() != hpx::find_here()) {
 		return hpx::async < tree::load_balance_action > (id, 0, cnt, cnt2);
