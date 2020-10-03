@@ -12,7 +12,7 @@
 #include <cosmictiger/vect.hpp>
 
 struct particle {
-	vect<position> x;
+	part_pos x;
 	vect<float> v;
 	struct {
 		std::uint64_t rung :7;

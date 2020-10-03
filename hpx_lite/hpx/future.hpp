@@ -133,6 +133,10 @@ public:
 		return *this;
 	}
 
+	bool valid() const {
+		return ptr->fut.valid() || ptr->ready;
+	}
+
 	shared_future(hpx::future<T> &&other) {
 		*this = std::move(other);
 	}

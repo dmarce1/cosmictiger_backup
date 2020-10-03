@@ -21,6 +21,7 @@ using verify_type = tree::verify_action;
 using get_child_checks_type = tree::get_child_checks_action;
 using get_ptr_type = tree::get_ptr_action;
 using get_parts_type = tree::get_parts_action;
+using get_positions_type = tree::get_positions_action;
 using migrate_type = tree::migrate_action;
 HPX_REGISTER_ACTION(build_tree_dir_type);
 HPX_REGISTER_ACTION(destroy_type);
@@ -34,6 +35,7 @@ HPX_REGISTER_ACTION(verify_type);
 HPX_REGISTER_ACTION(get_child_checks_type);
 HPX_REGISTER_ACTION(get_ptr_type);
 HPX_REGISTER_ACTION(get_parts_type);
+HPX_REGISTER_ACTION(get_positions_type);
 HPX_REGISTER_ACTION(migrate_type);
 
 #else
@@ -212,6 +214,15 @@ check_pair tree::get_child_checks() const {
 	checks.second.info = &(tptr->child_info[1]);
 	checks.second.opened = false;
 	return std::move(checks);
+}
+
+std::vector<part_pos> tree::get_positions() const {
+	std::vector<part_pos> pos;
+	pos.reserve(tptr->parts.size());
+	for( auto i = tptr->parts.begin(); i != tptr->parts.end(); i++) {
+		pos.push_back(i->x);
+	}
+	return std::move(pos);
 }
 
 std::uint64_t tree::get_ptr() {

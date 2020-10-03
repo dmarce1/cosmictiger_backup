@@ -54,3 +54,8 @@ inline vect<double> double_to_pos(const vect<double> &p1) {
 	}
 	return p2;
 }
+
+
+using part_pos = vect<position>;
+
+

@@ -31,6 +31,7 @@ set(cosmictiger_source_files
 	src/hpx.cpp
 	src/main.cpp
 	src/options.cpp
+	src/pos_cache.cpp
 	src/rand.cpp
 	src/range.cpp
 	src/tree.cpp
@@ -40,20 +41,28 @@ set(cosmictiger_source_files
 
 
 set(cosmictiger_header_files
-	cosmictiger/bucket.hpp
-	cosmictiger/cuda_export.hpp
-	cosmictiger/defs.hpp
-	cosmictiger/fileio.hpp
-	cosmictiger/hpx.hpp
-	cosmictiger/options.hpp
-	cosmictiger/particle.hpp
-	cosmictiger/position.hpp
-	cosmictiger/rand.hpp
-	cosmictiger/range.hpp
-	cosmictiger/timer.hpp
+	cosmictiger/bucket.hpp	 
+	cosmictiger/check.hpp	 
+	cosmictiger/cuda_export.hpp  
+	cosmictiger/defs.hpp	 
+	cosmictiger/fileio.hpp	 
+	cosmictiger/future_data.hpp  
+ 	cosmictiger/hpx.hpp	
+	cosmictiger/multipole.hpp	
+	cosmictiger/options.hpp	
+	cosmictiger/particle.hpp	
+	cosmictiger/pos_cache.hpp	
+	cosmictiger/position.hpp	
+	cosmictiger/rand.hpp	 
+	cosmictiger/range.hpp	 
+	cosmictiger/read_init.hpp	 
+	cosmictiger/timer.hpp	 
 	cosmictiger/tree.hpp
-	cosmictiger/tree_client.hpp
+	cosmictiger/tree_client.hpp 
+	cosmictiger/tree_dir.hpp
+	cosmictiger/tree_dir_impl.hpp
 	cosmictiger/tree_mems.hpp
+	cosmictiger/util.hpp
 	cosmictiger/vect.hpp
 )
 

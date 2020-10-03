@@ -10,6 +10,7 @@
 
 
 #include <cosmictiger/bucket.hpp>
+#include <cosmictiger/future_data.hpp>
 
 class tree;
 class check_item;
@@ -30,6 +31,9 @@ public:
 	}
 	hpx::id_type get_id() const {
 		return id;
+	}
+	std::uint64_t get_ptr() const {
+		return ptr;
 	}
 	tree_client(hpx::id_type myid, tree* local_ptr);
 	tree_client(hpx::id_type myid, std::uint64_t local_ptr);
@@ -53,6 +57,7 @@ public:
 	hpx::future<int> load_balance(int, bool left, std::uint64_t, std::uint64_t) const;
 	hpx::future<std::uint64_t> prune(int, bool) const;
 	hpx::future<int> verify(int, bool) const;
+	future_data<std::vector<part_pos>> get_positions() const;
 	bool local() const {
 		return hpx::get_colocation_id(id).get() == hpx::find_here();
 	}
