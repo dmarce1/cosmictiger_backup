@@ -12,6 +12,7 @@ class family_check;
 class tree_client;
 
 
+#include <cosmictiger/check.hpp>
 #include <cosmictiger/tree_client.hpp>
 #include <cosmictiger/tree_dir.hpp>
 
@@ -35,6 +36,7 @@ public:
 	std::uint64_t drift(int, int, tree_client, tree_client, float dt);
 	int find_home_parent(int, bucket);
 	int find_home_child(int, bucket);
+	check_pair get_child_checks() const;
 	bucket get_parts();
 	std::uint64_t get_ptr();
 	std::uint64_t grow(int, bucket&&);
@@ -52,8 +54,9 @@ public:
 	/**/HPX_DEFINE_COMPONENT_ACTION(tree,load_balance);
 	/**/HPX_DEFINE_COMPONENT_ACTION(tree,prune);
 	/**/HPX_DEFINE_COMPONENT_ACTION(tree,verify);
+	/**/HPX_DEFINE_COMPONENT_DIRECT_ACTION(tree,get_child_checks);
 	/**/HPX_DEFINE_COMPONENT_DIRECT_ACTION(tree,get_ptr);
-	/**/HPX_DEFINE_COMPONENT_DIRECT_ACTION(tree,get_parts);
+		/**/HPX_DEFINE_COMPONENT_DIRECT_ACTION(tree,get_parts);
 	/**/HPX_DEFINE_COMPONENT_DIRECT_ACTION(tree,migrate);
 	template<class A>
 	void serialize(A &&arc, unsigned) {

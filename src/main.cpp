@@ -31,16 +31,16 @@ int hpx_main(int argc, char *argv[]) {
 	fileio_init_read();
 	printf("Distributing data\n");
 	std::uint64_t ndistrib;
-	std::uint64_t chunk_size = 1024;
+	std::uint64_t chunk_size = 1024 * 1024;
 	std::uint64_t ntotal;
 	do {
 		int rc = root.verify(0, false).get();
 		if (rc) {
 			printf("%s\n", tree_verification_error(rc).c_str());
 		}
-
 		ndistrib = fileio_insert_parts(chunk_size);
 		ntotal = root.grow(0, false, bucket()).get();
+		printf("%li distributed\n", ntotal);
 		chunk_size = std::min(2 * chunk_size, std::uint64_t(32 * 1024 * 1024));
 	} while (ndistrib > 0);
 	printf("%li loaded\n", ntotal);
@@ -59,6 +59,7 @@ int hpx_main(int argc, char *argv[]) {
 //	dtime = timer() - dtime;
 //	printf("Drift takes %e seconds %f%% drifted\n", dtime, pct_drift);
 
+	root.destroy(0).get();
 	return hpx::finalize();
 }
 //

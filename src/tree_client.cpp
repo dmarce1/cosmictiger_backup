@@ -55,6 +55,15 @@ hpx::future<bucket> tree_client::get_parts() const {
 	}
 }
 
+
+hpx::future<check_pair> tree_client::get_child_checks() const {
+	if (hpx::get_colocation_id(id).get() != hpx::find_here()) {
+		return hpx::async < tree::get_child_checks_action > (id);
+	} else {
+		return hpx::make_ready_future(reinterpret_cast<tree*>(ptr)->get_child_checks());
+	}
+}
+
 hpx::future<std::uint64_t> tree_client::prune(int stack_cnt, bool left) const {
 	if (hpx::get_colocation_id(id).get() != hpx::find_here()) {
 		return hpx::async < tree::prune_action > (id, 0);

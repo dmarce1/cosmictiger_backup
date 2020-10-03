@@ -12,6 +12,9 @@
 #include <cosmictiger/bucket.hpp>
 
 class tree;
+class check_item;
+using check_pair = std::pair<check_item,check_item>;
+
 
 class tree_client {
 	hpx::id_type id;
@@ -43,6 +46,7 @@ public:
 	hpx::future<std::uint64_t> drift(int, bool, int,tree_client, tree_client, float dt) const;
 	int find_home_parent(int, bucket&&) const;
 	int find_home_child(int, bucket&&) const;
+	hpx::future<check_pair> get_child_checks() const;
 	hpx::future<bucket> get_parts() const;
 	hpx::future<std::uint64_t> grow(int, bool, bucket&&) const;
 	hpx::future<tree_client> migrate(hpx::id_type) const;

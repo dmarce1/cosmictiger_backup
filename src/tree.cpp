@@ -18,6 +18,7 @@ using grow_type = tree::grow_action;
 using load_balance_type = tree::load_balance_action;
 using prune_type = tree::prune_action;
 using verify_type = tree::verify_action;
+using get_child_checks_type = tree::get_child_checks_action;
 using get_ptr_type = tree::get_ptr_action;
 using get_parts_type = tree::get_parts_action;
 using migrate_type = tree::migrate_action;
@@ -30,6 +31,7 @@ HPX_REGISTER_ACTION(grow_type);
 HPX_REGISTER_ACTION(load_balance_type);
 HPX_REGISTER_ACTION(prune_type);
 HPX_REGISTER_ACTION(verify_type);
+HPX_REGISTER_ACTION(get_child_checks_type);
 HPX_REGISTER_ACTION(get_ptr_type);
 HPX_REGISTER_ACTION(get_parts_type);
 HPX_REGISTER_ACTION(migrate_type);
@@ -140,8 +142,8 @@ tree_dir tree::build_tree_dir(tree_client self) const {
 	if (tptr->level == min_level) {
 		dir.add_tree_client(self, tptr->box);
 	} else {
-		auto futl = hpx::async < build_tree_dir_action > (tptr->children[0].get_id(), tptr->children[0]);
-		auto futr = hpx::async < build_tree_dir_action > (tptr->children[1].get_id(), tptr->children[1]);
+		auto futl = hpx::async < build_tree_dir_action > (tptr->left_child.get_id(), tptr->left_child);
+		auto futr = hpx::async < build_tree_dir_action > (tptr->right_child.get_id(), tptr->right_child);
 		dir = futl.get();
 //		printf( "Merging\n");
 		dir.merge(futr.get());
@@ -184,23 +186,32 @@ void tree::create_children() {
 		fptrl = hpx::async < get_ptr_action > (id_left);
 	}
 	auto ptrr = get_ptr_action()(id_right);
-	tptr->children[0] = tree_client(std::move(id_left), fptrl.get());
-	tptr->children[1] = tree_client(std::move(id_right), ptrr);
+	tptr->left_child = tree_client(std::move(id_left), fptrl.get());
+	tptr->right_child = tree_client(std::move(id_right), ptrr);
 }
 
 int tree::destroy(int stack_cnt) {
 	if (!tptr->leaf) {
-		auto futl = tptr->children[0].destroy(stack_cnt);
-		auto futr = tptr->children[1].destroy(stack_cnt);
+		auto futl = tptr->left_child.destroy(stack_cnt);
+		auto futr = tptr->right_child.destroy(stack_cnt);
 		futl.get();
-		tptr->children[0] = tree_client();
+		tptr->left_child = tree_client();
 		futr.get();
-		tptr->children[1] = tree_client();
+		tptr->right_child = tree_client();
 	}
 	if( tptr->level == 0 ) {
 		tree_cleanup();
 	}
 	return 0;
+}
+
+check_pair tree::get_child_checks() const {
+	check_pair checks;
+	checks.first.info = &(tptr->child_info[0]);
+	checks.first.opened = false;
+	checks.second.info = &(tptr->child_info[1]);
+	checks.second.opened = false;
+	return std::move(checks);
 }
 
 std::uint64_t tree::get_ptr() {
@@ -240,8 +251,8 @@ std::uint64_t tree::grow(int stack_cnt, bucket &&parts) {
 				i++;
 			}
 		}
-		auto futl = tptr->children[0].grow(stack_cnt, true, std::move(parts_left));
-		auto futr = tptr->children[1].grow(stack_cnt, false, std::move(parts_right));
+		auto futl = tptr->left_child.grow(stack_cnt, true, std::move(parts_left));
+		auto futr = tptr->right_child.grow(stack_cnt, false, std::move(parts_right));
 		tptr->child_cnt[0] = futl.get();
 		tptr->child_cnt[1] = futr.get();
 	}
@@ -254,8 +265,8 @@ bucket tree::get_parts() {
 
 int tree::load_balance(int stack_cnt, std::uint64_t index, std::uint64_t total) {
 	if (!tptr->leaf) {
-		auto futl = tptr->children[0].load_balance(stack_cnt, true, index, total);
-		auto futr = tptr->children[1].load_balance(stack_cnt, false, index + tptr->child_cnt[0], total);
+		auto futl = tptr->left_child.load_balance(stack_cnt, true, index, total);
+		auto futr = tptr->right_child.load_balance(stack_cnt, false, index + tptr->child_cnt[0], total);
 		futl.get();
 		futr.get();
 		const auto &localities = hpx_localities();
@@ -273,17 +284,17 @@ int tree::load_balance(int stack_cnt, std::uint64_t index, std::uint64_t total) 
 			hpx::future<tree_client> newr;
 			if (il != hpx::get_locality_id()) {
 //				printf( "Migrating from %i to %i\n", hpx::get_locality_id(), il);
-				newl = tptr->children[0].migrate(localities[il]);
+				newl = tptr->left_child.migrate(localities[il]);
 			}
 			if (ir != hpx::get_locality_id()) {
 //				printf( "Migrating from %i to %i\n", hpx::get_locality_id(), ir);
-				newr = tptr->children[1].migrate(localities[ir]);
+				newr = tptr->right_child.migrate(localities[ir]);
 			}
 			if (newl.valid()) {
-				tptr->children[0] = newl.get();
+				tptr->left_child = newl.get();
 			}
 			if (newr.valid()) {
-				tptr->children[1] = newr.get();
+				tptr->right_child = newr.get();
 			}
 		}
 	}
@@ -291,6 +302,8 @@ int tree::load_balance(int stack_cnt, std::uint64_t index, std::uint64_t total) 
 }
 
 tree_client tree::migrate(hpx::id_type locality) {
+	tptr->child_info[0].multi = nullptr;
+	tptr->child_info[1].multi = nullptr;
 	auto new_ptr = hpx::new_ < tree > (locality, *this);
 	auto new_id = new_ptr.get();
 	if (hpx::get_colocation_id(new_id).get() == hpx::find_here()) {
@@ -304,17 +317,17 @@ tree_client tree::migrate(hpx::id_type locality) {
 std::uint64_t tree::prune(int stack_cnt) {
 	tptr->parent = tree_client();
 	if (!tptr->leaf) {
-		auto futl = tptr->children[0].prune(stack_cnt, true);
-		auto futr = tptr->children[1].prune(stack_cnt, false);
+		auto futl = tptr->left_child.prune(stack_cnt, true);
+		auto futr = tptr->right_child.prune(stack_cnt, false);
 		tptr->child_cnt[0] = futl.get();
 		tptr->child_cnt[1] = futr.get();
 		if (size() <= opts.bucket_size) {
-			auto futl = tptr->children[0].get_parts();
-			auto futr = tptr->children[1].get_parts();
+			auto futl = tptr->left_child.get_parts();
+			auto futr = tptr->right_child.get_parts();
 			auto tmpl = futl.get();
-			tptr->children[0] = tree_client();
+			tptr->left_child = tree_client();
 			auto tmpr = futr.get();
-			tptr->children[1] = tree_client();
+			tptr->right_child = tree_client();
 			auto sz = tmpr.size() + tmpl.size();
 			for (auto i = tmpl.begin(); i != tmpl.end(); i++) {
 				tmpr.insert(*i);
@@ -353,8 +366,8 @@ int tree::verify(int stack_cnt) const {
 		if (tptr->level > min_level && size() <= opts.bucket_size) {
 			rc |= TREE_UNDERFLOW;
 		}
-		auto futl = tptr->children[0].verify(stack_cnt, true);
-		auto futr = tptr->children[1].verify(stack_cnt, false);
+		auto futl = tptr->left_child.verify(stack_cnt, true);
+		auto futr = tptr->right_child.verify(stack_cnt, false);
 		rc |= futl.get();
 		rc |= futr.get();
 	}
@@ -398,8 +411,8 @@ std::uint64_t tree::drift(int stack_cnt, int step, tree_client parent, tree_clie
 			}
 		}
 	} else {
-		auto futl = tptr->children[0].drift(stack_cnt, true, step, self, tptr->children[0], dt);
-		auto futr = tptr->children[1].drift(stack_cnt, false, step, self, tptr->children[1], dt);
+		auto futl = tptr->left_child.drift(stack_cnt, true, step, self, tptr->left_child, dt);
+		auto futr = tptr->right_child.drift(stack_cnt, false, step, self, tptr->right_child, dt);
 		drifted += futl.get();
 		drifted += futr.get();
 	}
@@ -436,12 +449,12 @@ int tree::find_home_child(int stack_cnt, bucket parts) {
 			parts.remove(parts.begin());
 		}
 		if (l_parts.size()) {
-			assert(tptr->children[0] != tree_client());
-			tptr->children[0].find_home_child(stack_cnt, std::move(l_parts));
+			assert(tptr->left_child != tree_client());
+			tptr->left_child.find_home_child(stack_cnt, std::move(l_parts));
 		}
 		if (r_parts.size()) {
-			assert(tptr->children[1] != tree_client());
-			tptr->children[1].find_home_child(stack_cnt, std::move(r_parts));
+			assert(tptr->right_child != tree_client());
+			tptr->right_child.find_home_child(stack_cnt, std::move(r_parts));
 		}
 	}
 	return 0;
@@ -475,12 +488,12 @@ int tree::find_home_parent(int stack_cnt, bucket parts) {
 		}
 	}
 	if (l_parts.size()) {
-		assert(tptr->children[0] != tree_client());
-		tptr->children[0].find_home_child(stack_cnt, std::move(l_parts));
+		assert(tptr->left_child != tree_client());
+		tptr->left_child.find_home_child(stack_cnt, std::move(l_parts));
 	}
 	if (r_parts.size()) {
-		assert(tptr->children[1] != tree_client());
-		tptr->children[1].find_home_child(stack_cnt, std::move(r_parts));
+		assert(tptr->right_child != tree_client());
+		tptr->right_child.find_home_child(stack_cnt, std::move(r_parts));
 	}
 	return 0;
 }

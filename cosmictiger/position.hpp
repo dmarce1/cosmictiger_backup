@@ -22,7 +22,7 @@ public:DEFAULT_CLASS_MEMBERS(position)
 	//	printf( "%i %e\n", i, r);
 	}
 	operator double() const {
-		return (double(i) + 0.5) * pos_inv + 0.5;
+		return double(i) * pos_inv + 0.5;
 	}
 	position operator-(const position &other) const {
 		position rc;
