@@ -28,6 +28,7 @@ set(cosmictiger_source_files
 	src/bucket.cpp
 	src/check.cpp
 	src/fileio.cpp
+	src/gravity_queue.cpp
 	src/hpx.cpp
 	src/main.cpp
 	src/options.cpp
@@ -47,6 +48,8 @@ set(cosmictiger_header_files
 	cosmictiger/defs.hpp	 
 	cosmictiger/fileio.hpp	 
 	cosmictiger/future_data.hpp  
+	cosmictiger/gravity.hpp
+	cosmictiger/gravity_queue.hpp
  	cosmictiger/hpx.hpp	
 	cosmictiger/multipole.hpp	
 	cosmictiger/options.hpp	

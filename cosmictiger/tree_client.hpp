@@ -45,11 +45,14 @@ public:
 	bool operator==(const tree_client &other) const {
 		return id == other.id;
 	}
+	int get_rank() const {
+		return hpx::get_locality_id_from_id(id);
+	}
 	hpx::future<int> destroy(int) const;
 	hpx::future<std::uint64_t> drift(int, bool, int, tree_client, tree_client, float dt) const;
 	int find_home_parent(int, bucket&&) const;
 	int find_home_child(int, bucket&&) const;
-	hpx::future<check_pair> get_child_checks() const;
+	check_pair get_child_checks() const;
 	hpx::future<bucket> get_parts() const;
 	hpx::future<std::uint64_t> grow(int, bool, bucket&&) const;
 	hpx::future<tree_client> migrate(hpx::id_type) const;
@@ -67,5 +70,7 @@ public:
 		arc & ptr;
 	}
 };
+
+
 
 #endif /* COSMICTIGER_TREE_CLIENT_HPP_ */

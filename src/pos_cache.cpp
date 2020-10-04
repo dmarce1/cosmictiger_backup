@@ -2,6 +2,7 @@
 #include <cosmictiger/future_data.hpp>
 #include <cosmictiger/position.hpp>
 #include <cosmictiger/tree.hpp>
+#include <cosmictiger/pos_cache.hpp>
 
 #define CACHE_WIDTH (32 * 1024)
 #define CACHE_DEPTH 2
