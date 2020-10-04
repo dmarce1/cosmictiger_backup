@@ -60,6 +60,8 @@
 
 namespace hpx {
 const static id_type invalid_id;
+namespace naming {
+}
 }
 
 #endif /* HPX_HPP_ */

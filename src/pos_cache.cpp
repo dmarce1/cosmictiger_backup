@@ -14,10 +14,15 @@ struct cache_entry {
 	tree_client id;
 	bool ready;
 	std::shared_ptr<std::vector<part_pos>> data_ptr;
+	cache_entry() {
+		id = tree_client();
+		ready = false;
+		data_ptr = std::make_shared<std::vector<part_pos>>();
+	}
 };
 
 struct cache_line {
-	std::array<cache_entry, CACHE_DEPTH> entries;
+	std::array<std::shared_ptr<cache_entry>, CACHE_DEPTH> entries;
 	mutex_type mtx;
 };
 
@@ -47,36 +52,40 @@ std::vector<std::vector<part_pos>> get_remote_positions(const std::vector<tree_c
 
 std::vector<std::shared_ptr<std::vector<part_pos>>> get_positions(const std::vector<tree_client> &ids) {
 	std::vector < std::shared_ptr<std::vector<part_pos>> > res(ids.size());
-	std::vector<int> status(ids.size());
+	std::vector < std::shared_ptr < cache_entry >> cache_entries(ids.size());
 	std::unordered_map<int, request_type> requests;
+	std::vector<bool> notfound(ids.size());
 	for (int i = 0; i < ids.size(); i++) {
 		const int index = gen_index(ids[i]);
 		auto &line = cache[index];
 		std::lock_guard<mutex_type> lock(line.mtx);
-		cache_entry *entry = nullptr;
+		std::shared_ptr<cache_entry> entry = nullptr;
 		for (int i = 0; i < CACHE_DEPTH; i++) {
-			if (line.entries[i].id == ids[i]) {
-				entry = &(line.entries[i]);
-				break;
+			if (line.entries[i] != nullptr) {
+				if (line.entries[i]->id == ids[i]) {
+					entry = line.entries[i];
+					break;
+				}
 			}
 		}
 		if (entry == nullptr) {
-			status[i] = CACHE_NOTFOUND;
+			notfound[i] = true;
 			for (int i = CACHE_DEPTH - 1; i > 0; i--) {
 				line.entries[i] = line.entries[i - 1];
 			}
-			auto &entry = line.entries[0];
-			entry.id = ids[i];
-			entry.ready = false;
-		} else if (entry->ready) {
-			status[i] = CACHE_READY;
-			res[i] = entry->data_ptr;
+			auto &new_entry = line.entries[0];
+			new_entry = std::make_shared<cache_entry>();
+			new_entry->id = ids[i];
+			new_entry->ready = false;
+			cache_entries[i] = new_entry;
 		} else {
-			status[i] = CACHE_NOTREADY;
+			notfound[i] = false;
+			res[i] = entry->data_ptr;
+			cache_entries[i] = entry;
 		}
 	}
 	for (int i = 0; i < ids.size(); i++) {
-		if (status[i] == CACHE_NOTFOUND) {
+		if (notfound[i]) {
 			const int rank = hpx::get_locality_id_from_id(ids[i]);
 			auto &entry = requests[rank];
 			entry.order.push_back(i);
@@ -85,28 +94,25 @@ std::vector<std::shared_ptr<std::vector<part_pos>>> get_positions(const std::vec
 	}
 	std::vector < hpx::future < std::vector<std::vector<part_pos>> >> futs;
 	for (auto req : requests) {
-		futs.push_back(hpx::async < get_remote_positions_action > (hpx_localities()[req.first], req.second.id));
+		futs.push_back(hpx::async<get_remote_positions_action>(hpx_localities()[req.first], req.second.id));
 	}
 	int i = 0;
 	for (auto req : requests) {
 		auto pos = futs[i].get();
 		int j = 0;
 		for (auto this_pos : pos) {
-			auto ptr = std::make_shared < std::vector < part_pos >> (std::move(this_pos));
 			const auto resi = req.second.order[j];
-			res[resi] = ptr;
-			const int index = gen_index(ids[i]);
-			auto &line = cache[index];
-			std::lock_guard<mutex_type> lock(line.mtx);
-			for (int i = 0; i < CACHE_DEPTH; i++) {
-				if (line.entries[i].id == ids[resi]) {
-					line.entries[i].data_ptr = ptr;
-					line.entries[i].ready = true;
-				}
-			}
+			res[resi] = nullptr;
+			*(cache_entries[resi]->data_ptr) = std::move(this_pos);
+			cache_entries[resi]->ready = true;
 			j++;
 		}
 		i++;
+	}
+	for (int i = 0; i < ids.size(); i++) {
+		if (!cache_entries[i]->ready) {
+			hpx::this_thread::yield();
+		}
 	}
 	return std::move(res);
 }
