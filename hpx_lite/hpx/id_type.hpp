@@ -12,7 +12,6 @@
 #include "future.hpp"
 #include "mutex.hpp"
 
-
 #define HPX_DEFINE_PLAIN_ACTION(func, action_name)                                                \
 		struct action_name : public hpx::detail::action_base<decltype(func)>  {                   \
 			static void invoke( hpx::detail::ibuffer_type&, hpx::detail::obuffer_type);      \
@@ -46,7 +45,6 @@
 
 #define HPX_PLAIN_ACTION(...) HPX_GET_PLAIN_ACTION(__VA_ARGS__, HPX_PLAIN_ACTION2, HPX_PLAIN_ACTION1)(__VA_ARGS__)
 
-
 #include "hpx/detail/id_type_detail.hpp"
 
 namespace hpx {
@@ -64,36 +62,41 @@ class id_type {
 
 public:
 
-	void set_address(detail::agas_entry_t** data_ptr, const std::function<void(detail::agas_entry_t**)>& deleter);
+	void set_address(detail::agas_entry_t **data_ptr, const std::function<void(detail::agas_entry_t**)> &deleter);
 	void set_rank(int);
 	std::uintptr_t get_address() const;
 	int get_rank() const;
 
 	id_type();
-	id_type(const id_type& other);
-	id_type(id_type&& other);
+	id_type(const id_type &other);
+	id_type(id_type &&other);
 	~id_type() = default;
-	id_type& operator=(const id_type& other);
-	id_type& operator=(id_type&& other);
+	id_type& operator=(const id_type &other);
+	id_type& operator=(id_type &&other);
 	bool operator==(const id_type&) const;
 	bool operator!=(const id_type&) const;
 	gid_type get_gid() const;
 
 	template<class Archive>
-	void load(const Archive& arc, const unsigned);
+	void load(const Archive &arc, const unsigned);
 
 	template<class Archive>
-	void save(Archive& arc, const unsigned) const;
+	void save(Archive &arc, const unsigned) const;
 
 	HPX_SERIALIZATION_SPLIT_MEMBER()
 	;
 
+	friend int get_locality_id_from_id(const id_type&);
 
 };
 
-
 template<class Function, class ... Args>
-future<typename Function::return_type> async(const id_type& id, Args&& ... args);
+future<typename Function::return_type> async(const id_type &id, Args &&... args);
+
+inline int get_locality_id_from_id(const id_type &id) {
+	return id.rank;
+
+}
 
 }
 

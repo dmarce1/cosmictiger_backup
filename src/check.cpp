@@ -6,6 +6,8 @@
 std::stack<void*, std::vector<void*>> stack;
 mutex_type mtx;
 
+
+
 void* check_allocate(std::size_t size) {
 	auto* ptr = malloc(size);
 	std::lock_guard<mutex_type> lock(mtx);

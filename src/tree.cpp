@@ -10,13 +10,13 @@
 #ifdef HPX_LITE
 HPX_REGISTER_MINIMAL_COMPONENT_FACTORY(hpx::components::managed_component<tree>, tree);
 using build_tree_dir_type = tree::build_tree_dir_action;
+using compute_multipoles_type = tree::compute_multipoles_action;
 using destroy_type = tree::destroy_action;
 using drift_type = tree::drift_action;
 using find_home_parent_type = tree::find_home_parent_action;
 using find_home_child_type = tree::find_home_child_action;
 using grow_type = tree::grow_action;
 using load_balance_type = tree::load_balance_action;
-using compute_multipoles_type = tree::compute_multipoles_action;
 using prune_type = tree::prune_action;
 using verify_type = tree::verify_action;
 using get_child_checks_type = tree::get_child_checks_action;
@@ -25,13 +25,13 @@ using get_parts_type = tree::get_parts_action;
 using get_positions_type = tree::get_positions_action;
 using migrate_type = tree::migrate_action;
 HPX_REGISTER_ACTION(build_tree_dir_type);
+HPX_REGISTER_ACTION(compute_multipoles_type);
 HPX_REGISTER_ACTION(destroy_type);
 HPX_REGISTER_ACTION(drift_type);
 HPX_REGISTER_ACTION(find_home_parent_type);
 HPX_REGISTER_ACTION(find_home_child_type);
 HPX_REGISTER_ACTION(grow_type);
 HPX_REGISTER_ACTION(load_balance_type);
-HPX_REGISTER_ACTION(compute_multipoles_type);
 HPX_REGISTER_ACTION(prune_type);
 HPX_REGISTER_ACTION(verify_type);
 HPX_REGISTER_ACTION(get_child_checks_type);
@@ -158,6 +158,113 @@ tree_dir tree::build_tree_dir(tree_client self) const {
 	}
 	return dir;
 }
+
+
+multipole_return tree::compute_multipoles(int stack_cnt, int rung) {
+	multipole_return rc;
+	std::uint64_t nactive = 0;
+	vect<double> xc;
+	multipole<float> M;
+	M = float(0.0);
+	range prange;
+	float r = 0.0;
+	for (int dim = 0; dim < NDIM; dim++) {
+		xc[dim] = 0.0;
+		prange.max[dim] = 0.0;
+		prange.min[dim] = 1.0;
+	}
+	if (tptr->leaf) {
+		const auto m = opts.particle_mass;
+		if (tptr->parts.size()) {
+			for (auto i = tptr->parts.begin(); i != tptr->parts.end(); i++) {
+				const auto x = pos_to_double(i->x);
+				if (i->rung >= rung) {
+					nactive++;
+				}
+				for (int dim = 0; dim < NDIM; dim++) {
+					xc[dim] += x[dim];
+					prange.max[dim] = std::max(prange.max[dim], x[dim]);
+					prange.min[dim] = std::min(prange.min[dim], x[dim]);
+				}
+			}
+			xc /= tptr->parts.size();
+			for (auto i = tptr->parts.begin(); i != tptr->parts.end(); i++) {
+				const auto x = pos_to_double(i->x);
+				r = std::max(r, (float) abs(x - xc));
+				M() += m;
+				for (int n = 0; n < NDIM; n++) {
+					const auto dxn = x[n] - xc[n];
+					for (int m = 0; m <= n; m++) {
+						const auto dxm = x[m] - xc[n];
+						M(n, m) += dxn * dxm * m;
+						for (int l = 0; l <= m; l++) {
+							const auto dxl = x[l] - xc[n];
+							M(n, m, l) -= dxn * dxm * dxl * m;
+						}
+					}
+				}
+			}
+		} else {
+			xc = range_center(tptr->box);
+			prange.max = prange.min = xc;
+		}
+	} else {
+		auto futl = tptr->left_child.compute_multipoles(stack_cnt, true, rung);
+		auto futr = tptr->right_child.compute_multipoles(stack_cnt, false, rung);
+		auto L = futl.get();
+		auto R = futr.get();
+		tptr->child_info[0].multi = L.info.multi;
+		tptr->child_info[0].leaf = L.info.leaf;
+		tptr->child_info[1].multi = R.info.multi;
+		tptr->child_info[1].leaf = R.info.leaf;
+		nactive = L.nactive + R.nactive;
+		const multi_src &ml = *L.info.multi;
+		const multi_src &mr = *R.info.multi;
+		const auto mtot = ml.m() + mr.m();
+		if (mtot != 0.0) {
+			const auto xl = pos_to_double(ml.x);
+			const auto xr = pos_to_double(mr.x);
+			xc = (xl * ml.m() + xr * mr.m()) / mtot;
+			const auto dxl = xl - xc;
+			const auto dxr = xr - xc;
+			M = (ml.m >> dxl) + (mr.m >> dxr);
+			if (mr.m() == 0.0) {
+				r = ml.r;
+				prange = L.prange;
+			} else if (ml.m() == 0.0) {
+				r = mr.r;
+				prange = R.prange;
+			} else {
+				r = std::max(abs(dxl) + ml.r, abs(dxr) + mr.r);
+				for (int dim = 0; dim < NDIM; dim++) {
+					prange.max[dim] = std::max(L.prange.max[dim], R.prange.max[dim]);
+					prange.min[dim] = std::max(L.prange.min[dim], L.prange.min[dim]);
+				}
+			}
+			vect<double> corner;
+			float rmax = 0.0;
+			for (int ci = 0; ci < 8; ci++) {
+				for (int dim = 0; dim < NDIM; dim++) {
+					corner[dim] = ((ci >> dim) & 1) ? prange.min[dim] : prange.max[dim];
+				}
+				rmax = std::max(rmax, (float) abs(corner - xc));
+			}
+			r = std::min(rmax, r);
+		} else {
+			xc = range_center(tptr->box);
+			prange.max = prange.min = xc;
+		}
+	}
+	tptr->multi.m = M;
+	tptr->multi.x = double_to_pos(xc);
+	tptr->multi.r = r;
+	rc.info.multi = &tptr->multi;
+	rc.info.leaf = tptr->leaf;
+	rc.nactive = nactive;
+	rc.prange = prange;
+	return rc;
+}
+
 
 void tree::create_children() {
 	auto boxl = tptr->box;
@@ -312,111 +419,6 @@ int tree::load_balance(int stack_cnt, std::uint64_t index, std::uint64_t total) 
 		}
 	}
 	return 0;
-}
-
-multipole_return tree::compute_multipoles(int stack_cnt, int rung) {
-	multipole_return rc;
-	std::uint64_t nactive = 0;
-	vect<double> xc;
-	multipole<float> M;
-	M = float(0.0);
-	range prange;
-	float r = 0.0;
-	for (int dim = 0; dim < NDIM; dim++) {
-		xc[dim] = 0.0;
-		prange.max[dim] = 0.0;
-		prange.min[dim] = 1.0;
-	}
-	if (tptr->leaf) {
-		const auto m = opts.particle_mass;
-		if (tptr->parts.size()) {
-			for (auto i = tptr->parts.begin(); i != tptr->parts.end(); i++) {
-				const auto x = pos_to_double(i->x);
-				if (i->rung >= rung) {
-					nactive++;
-				}
-				for (int dim = 0; dim < NDIM; dim++) {
-					xc[dim] += x[dim];
-					prange.max[dim] = std::max(prange.max[dim], x[dim]);
-					prange.min[dim] = std::min(prange.min[dim], x[dim]);
-				}
-			}
-			xc /= tptr->parts.size();
-			for (auto i = tptr->parts.begin(); i != tptr->parts.end(); i++) {
-				const auto x = pos_to_double(i->x);
-				r = std::max(r, (float) abs(x - xc));
-				M() += m;
-				for (int n = 0; n < NDIM; n++) {
-					const auto dxn = x[n] - xc[n];
-					for (int m = 0; m <= n; m++) {
-						const auto dxm = x[m] - xc[n];
-						M(n, m) += dxn * dxm * m;
-						for (int l = 0; l <= m; l++) {
-							const auto dxl = x[l] - xc[n];
-							M(n, m, l) -= dxn * dxm * dxl * m;
-						}
-					}
-				}
-			}
-		} else {
-			xc = range_center(tptr->box);
-			prange.max = prange.min = xc;
-		}
-	} else {
-		auto futl = tptr->left_child.compute_multipoles(stack_cnt, true, rung);
-		auto futr = tptr->right_child.compute_multipoles(stack_cnt, false, rung);
-		auto L = futl.get();
-		auto R = futr.get();
-		tptr->child_info[0].multi = L.info.multi;
-		tptr->child_info[0].leaf = L.info.leaf;
-		tptr->child_info[1].multi = R.info.multi;
-		tptr->child_info[1].leaf = R.info.leaf;
-		nactive = L.nactive + R.nactive;
-		const multi_src &ml = *L.info.multi;
-		const multi_src &mr = *R.info.multi;
-		const auto mtot = ml.m() + mr.m();
-		if (mtot != 0.0) {
-			const auto xl = pos_to_double(ml.x);
-			const auto xr = pos_to_double(mr.x);
-			xc = (xl * ml.m() + xr * mr.m()) / mtot;
-			const auto dxl = xl - xc;
-			const auto dxr = xr - xc;
-			M = (ml.m >> dxl) + (mr.m >> dxr);
-			if (mr.m() == 0.0) {
-				r = ml.r;
-				prange = L.prange;
-			} else if (ml.m() == 0.0) {
-				r = mr.r;
-				prange = R.prange;
-			} else {
-				r = std::max(abs(dxl) + ml.r, abs(dxr) + mr.r);
-				for (int dim = 0; dim < NDIM; dim++) {
-					prange.max[dim] = std::max(L.prange.max[dim], R.prange.max[dim]);
-					prange.min[dim] = std::max(L.prange.min[dim], L.prange.min[dim]);
-				}
-			}
-			vect<double> corner;
-			float rmax = 0.0;
-			for (int ci = 0; ci < 8; ci++) {
-				for (int dim = 0; dim < NDIM; dim++) {
-					corner[dim] = ((ci >> dim) & 1) ? prange.min[dim] : prange.max[dim];
-				}
-				rmax = std::max(rmax, (float) abs(corner - xc));
-			}
-			r = std::min(rmax, r);
-		} else {
-			xc = range_center(tptr->box);
-			prange.max = prange.min = xc;
-		}
-	}
-	tptr->multi.m = M;
-	tptr->multi.x = double_to_pos(xc);
-	tptr->multi.r = r;
-	rc.info.multi = &tptr->multi;
-	rc.info.leaf = tptr->leaf;
-	rc.nactive = nactive;
-	rc.prange = prange;
-	return rc;
 }
 
 tree_client tree::migrate(hpx::id_type locality) {

@@ -44,6 +44,7 @@ public:
 	tree(const tree&);
 	~tree();
 	tree_dir build_tree_dir(tree_client) const;
+	multipole_return compute_multipoles(int, int);
 	void create_children();
 	int destroy(int);
 	std::uint64_t drift(int, int, tree_client, tree_client, float dt);
@@ -54,7 +55,6 @@ public:
 	bucket get_parts();
 	std::uint64_t get_ptr();
 	std::uint64_t grow(int, bucket&&);
-	multipole_return compute_multipoles(int, int);
 	int load_balance(int stack_cnt, std::uint64_t index, std::uint64_t total);
 	tree_client migrate(hpx::id_type);
 	std::uint64_t prune(int);
