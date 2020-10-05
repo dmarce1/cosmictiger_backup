@@ -2,6 +2,7 @@
 #include <cosmictiger/util.hpp>
 #include <cosmictiger/tree.hpp>
 #include <cosmictiger/tree_dir.hpp>
+#include <cosmictiger/gravity.hpp>
 
 #include <atomic>
 #include <stack>
@@ -16,6 +17,7 @@ using drift_type = tree::drift_action;
 using find_home_parent_type = tree::find_home_parent_action;
 using find_home_child_type = tree::find_home_child_action;
 using grow_type = tree::grow_action;
+using kick_fmm_type = tree::kick_fmm_action;
 using load_balance_type = tree::load_balance_action;
 using prune_type = tree::prune_action;
 using verify_type = tree::verify_action;
@@ -31,6 +33,7 @@ HPX_REGISTER_ACTION(drift_type);
 HPX_REGISTER_ACTION(find_home_parent_type);
 HPX_REGISTER_ACTION(find_home_child_type);
 HPX_REGISTER_ACTION(grow_type);
+HPX_REGISTER_ACTION(kick_fmm_type);
 HPX_REGISTER_ACTION(load_balance_type);
 HPX_REGISTER_ACTION(prune_type);
 HPX_REGISTER_ACTION(verify_type);
@@ -45,6 +48,7 @@ HPX_REGISTER_COMPONENT(hpx::components::managed_component<tree>, tree);
 #endif
 
 static std::shared_ptr<tree_dir> directory;
+static float theta_inv = 1.0 / 0.7;
 
 void tree_broadcast_directory(const tree_dir &dir);
 void tree_cleanup();
@@ -65,10 +69,10 @@ void tree_broadcast_directory(const tree_dir &dir) {
 	const int ir = ((hpx::get_locality_id() + 1) << 1);
 	std::vector<hpx::future<void>> futs;
 	if (il < localities.size()) {
-		futs.push_back(hpx::async < tree_broadcast_directory_action > (localities[il], dir));
+		futs.push_back(hpx::async<tree_broadcast_directory_action>(localities[il], dir));
 	}
 	if (ir < localities.size()) {
-		futs.push_back(hpx::async < tree_broadcast_directory_action > (localities[ir], dir));
+		futs.push_back(hpx::async<tree_broadcast_directory_action>(localities[ir], dir));
 	}
 //	printf( "Setting dir %i\n", dir.size());
 	directory = std::make_shared < tree_dir > (dir);
@@ -81,10 +85,10 @@ void tree_complete_drift() {
 	const int ir = ((hpx::get_locality_id() + 1) << 1);
 	std::vector<hpx::future<void>> futs;
 	if (il < localities.size()) {
-		futs.push_back(hpx::async < tree_complete_drift_action > (localities[il]));
+		futs.push_back(hpx::async<tree_complete_drift_action>(localities[il]));
 	}
 	if (ir < localities.size()) {
-		futs.push_back(hpx::async < tree_complete_drift_action > (localities[ir]));
+		futs.push_back(hpx::async<tree_complete_drift_action>(localities[ir]));
 	}
 	directory->retire_futures();
 	hpx::wait_all(futs.begin(), futs.end());
@@ -96,10 +100,10 @@ void tree_cleanup() {
 	const int ir = ((hpx::get_locality_id() + 1) << 1);
 	std::vector<hpx::future<void>> futs;
 	if (il < localities.size()) {
-		futs.push_back(hpx::async < tree_cleanup_action > (localities[il]));
+		futs.push_back(hpx::async<tree_cleanup_action>(localities[il]));
 	}
 	if (ir < localities.size()) {
-		futs.push_back(hpx::async < tree_cleanup_action > (localities[ir]));
+		futs.push_back(hpx::async<tree_cleanup_action>(localities[ir]));
 	}
 	directory = nullptr;
 	hpx::wait_all(futs.begin(), futs.end());
@@ -146,8 +150,8 @@ tree_dir tree::build_tree_dir(tree_client self) const {
 	if (tptr->level == min_level) {
 		dir.add_tree_client(self, tptr->box);
 	} else {
-		auto futl = hpx::async < build_tree_dir_action > (tptr->left_child.get_id(), tptr->left_child);
-		auto futr = hpx::async < build_tree_dir_action > (tptr->right_child.get_id(), tptr->right_child);
+		auto futl = hpx::async<build_tree_dir_action>(tptr->left_child.get_id(), tptr->left_child);
+		auto futr = hpx::async<build_tree_dir_action>(tptr->right_child.get_id(), tptr->right_child);
 		dir = futl.get();
 //		printf( "Merging\n");
 		dir.merge(futr.get());
@@ -158,7 +162,6 @@ tree_dir tree::build_tree_dir(tree_client self) const {
 	}
 	return dir;
 }
-
 
 multipole_return tree::compute_multipoles(int stack_cnt, int rung) {
 	multipole_return rc;
@@ -258,13 +261,13 @@ multipole_return tree::compute_multipoles(int stack_cnt, int rung) {
 	tptr->multi.m = M;
 	tptr->multi.x = double_to_pos(xc);
 	tptr->multi.r = r;
+	tptr->nactive = nactive;
 	rc.info.multi = &tptr->multi;
 	rc.info.leaf = tptr->leaf;
 	rc.nactive = nactive;
 	rc.prange = prange;
 	return rc;
 }
-
 
 void tree::create_children() {
 	auto boxl = tptr->box;
@@ -285,8 +288,8 @@ void tree::create_children() {
 		il = hpx::get_locality_id();
 		ir = hpx::get_locality_id();
 	}
-	auto futl = hpx::new_ < tree > (localities[il], (tptr->id << std::uint64_t(1)), boxl, tptr->level + 1);
-	auto futr = hpx::new_ < tree > (localities[ir], (tptr->id << std::uint64_t(1)) + std::uint64_t(1), boxr, tptr->level + 1);
+	auto futl = hpx::new_<tree>(localities[il], (tptr->id << std::uint64_t(1)), boxl, tptr->level + 1);
+	auto futr = hpx::new_<tree>(localities[ir], (tptr->id << std::uint64_t(1)) + std::uint64_t(1), boxr, tptr->level + 1);
 	tptr->leaf = false;
 	auto id_left = futl.get();
 	auto id_right = futr.get();
@@ -294,7 +297,7 @@ void tree::create_children() {
 	if (hpx::get_colocation_id(id_left).get() == hpx::find_here()) {
 		fptrl = hpx::make_ready_future(get_ptr_action()(id_left));
 	} else {
-		fptrl = hpx::async < get_ptr_action > (id_left);
+		fptrl = hpx::async<get_ptr_action>(id_left);
 	}
 	auto ptrr = get_ptr_action()(id_right);
 	tptr->left_child = tree_client(std::move(id_left), fptrl.get());
@@ -383,6 +386,53 @@ bucket tree::get_parts() {
 	return std::move(tptr->parts);
 }
 
+std::vector<bool> tree::inspect_checks(std::vector<check_item> &&checks, bool ewald) {
+	static const float h = SELF_PHI * opts.soft_len * std::pow(opts.problem_size, -1.0 / 3.0);
+	const simd_float R1 = tptr->multi.r + float(2) * h;
+	const vect<simd_int> X1 = tptr->multi.x;
+	const simd_float Thetainv = theta_inv;
+	const int simd_size = (checks.size() - 1) / simd_float::size() + 1;
+	std::vector<simd_float> R2(simd_size);
+	std::vector<vect<simd_int>> X2(simd_size);
+	std::vector<bool> res(checks.size());
+	for (int i = 0; i < checks.size(); i += simd_float::size()) {
+		const int j = i / simd_float::size();
+		for (int k = 0; k < simd_float::size(); k++) {
+			const int l = std::min(i + k, (int) checks.size() - 1);
+			R2[j][k] = checks[l].info->multi->r;
+			for (int dim = 0; dim < NDIM; dim++) {
+				X2[j][dim][k] = (int) checks[l].info->multi->x[dim];
+			}
+		}
+	}
+	for (int i = 0; i < simd_size; i++) {
+		const vect<simd_int> dXi = X2[i] - X1;
+		vect<simd_float> dX;
+		for (int dim = 0; dim < NDIM; dim++) {
+			dX[dim] = simd_float(dXi[dim]) * POS_INV;
+		}
+		simd_float dist = abs(dX);
+		if (ewald) {
+			dist = max(simd_float(0.25), dist);
+		}
+		const simd_float b = dist < (R2[i] + R1) * Thetainv;
+		for (int j = 0; j < simd_float::size(); j++) {
+			const auto k = std::min(simd_float::size() * i + j, res.size() - 1);
+			res[k] = b[j];
+		}
+	}
+	return res;
+}
+
+int tree::kick_fmm(int stack_cnt, std::vector<check_item> &&dchecks, std::vector<check_item> &&echecks, expansion_src &&L, bool stats) {
+
+	if (tptr->nactive > 0) {
+		L.l = L.l << (pos_to_double(tptr->multi.x) - L.x);
+
+	}
+
+}
+
 int tree::load_balance(int stack_cnt, std::uint64_t index, std::uint64_t total) {
 	if (!tptr->leaf) {
 		auto futl = tptr->left_child.load_balance(stack_cnt, true, index, total);
@@ -424,12 +474,12 @@ int tree::load_balance(int stack_cnt, std::uint64_t index, std::uint64_t total) 
 tree_client tree::migrate(hpx::id_type locality) {
 	tptr->child_info[0].multi = nullptr;
 	tptr->child_info[1].multi = nullptr;
-	auto new_ptr = hpx::new_ < tree > (locality, *this);
+	auto new_ptr = hpx::new_<tree>(locality, *this);
 	auto new_id = new_ptr.get();
 	if (hpx::get_colocation_id(new_id).get() == hpx::find_here()) {
 		return tree_client(new_id, get_ptr_action()(new_id));
 	} else {
-		return tree_client(new_id, hpx::async < get_ptr_action > (new_id).get());
+		return tree_client(new_id, hpx::async<get_ptr_action>(new_id).get());
 	}
 
 }

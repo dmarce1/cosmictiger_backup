@@ -64,7 +64,7 @@ hpx::future<std::uint64_t> tree_client::prune(int stack_cnt, bool left) const {
 	if (hpx::get_colocation_id(id).get() != hpx::find_here()) {
 		return hpx::async<tree::prune_action>(id, 0);
 	} else {
-		if (left) {
+		if (left || stack_cnt >= MAX_STACK) {
 			return thread_handler<std::uint64_t>([this](int stack_cnt) {
 				return reinterpret_cast<tree*>(ptr)->prune(stack_cnt);
 			}, stack_cnt);
@@ -77,7 +77,7 @@ hpx::future<std::uint64_t> tree_client::grow(int stack_cnt, bool left, bucket &&
 	if (hpx::get_colocation_id(id).get() != hpx::find_here()) {
 		return hpx::async<tree::grow_action>(id, 0, std::move(parts));
 	} else {
-		if (left) {
+		if (left || stack_cnt >= MAX_STACK) {
 			return thread_handler<std::uint64_t>([this](int stack_cnt, bucket &&parts) {
 				return reinterpret_cast<tree*>(ptr)->grow(stack_cnt, std::move(parts));
 			}, stack_cnt, std::move(parts));
@@ -91,7 +91,7 @@ hpx::future<multipole_return> tree_client::compute_multipoles(int stack_cnt, boo
 	if (hpx::get_colocation_id(id).get() != hpx::find_here()) {
 		return hpx::async<tree::compute_multipoles_action>(id, 0, rung);
 	} else {
-		if (left) {
+		if (left || stack_cnt >= MAX_STACK) {
 			return thread_handler<multipole_return>([this, rung](int stack_cnt) {
 				return reinterpret_cast<tree*>(ptr)->compute_multipoles(stack_cnt, rung);
 			}, stack_cnt);
@@ -105,7 +105,7 @@ hpx::future<int> tree_client::load_balance(int stack_cnt, bool left, std::uint64
 	if (hpx::get_colocation_id(id).get() != hpx::find_here()) {
 		return hpx::async<tree::load_balance_action>(id, 0, cnt, cnt2);
 	} else {
-		if (left) {
+		if (left || stack_cnt >= MAX_STACK) {
 			return thread_handler<int>([this, cnt, cnt2](int stack_cnt) {
 				return reinterpret_cast<tree*>(ptr)->load_balance(stack_cnt, cnt, cnt2);
 			}, stack_cnt);
@@ -119,7 +119,7 @@ hpx::future<int> tree_client::verify(int stack_cnt, bool left) const {
 	if (hpx::get_colocation_id(id).get() != hpx::find_here()) {
 		return hpx::async<tree::verify_action>(id, 0);
 	} else {
-		if (left) {
+		if (left || stack_cnt >= MAX_STACK) {
 			return thread_handler<int>([this](int stack_cnt) {
 				return reinterpret_cast<tree*>(ptr)->verify(stack_cnt);
 			}, stack_cnt);
@@ -153,12 +153,29 @@ hpx::future<std::uint64_t> tree_client::drift(int stack_cnt, bool left, int step
 	if (hpx::get_colocation_id(id).get() != hpx::find_here()) {
 		return hpx::async<tree::drift_action>(id, 0, step, std::move(parent), std::move(self), dt);
 	} else {
-		if (left) {
+		if (left || stack_cnt >= MAX_STACK) {
 			return thread_handler<std::uint64_t>([this](int stack_cnt, int step, tree_client &&parent, tree_client &&self, float dt) {
 				return reinterpret_cast<tree*>(ptr)->drift(stack_cnt, std::move(step), std::move(parent), std::move(self), std::move(dt));
 			}, stack_cnt, std::move(step), std::move(parent), std::move(self), std::move(dt));
 		} else {
 			return hpx::make_ready_future(reinterpret_cast<tree*>(ptr)->drift(stack_cnt, step, std::move(parent), std::move(self), dt));
+		}
+	}
+
+}
+
+hpx::future<int> tree_client::kick_fmm(int stack_cnt, bool left, std::vector<check_item> &&dchecks, std::vector<check_item> &&echecks, expansion_src &&L,
+		bool stats) {
+	if (hpx::get_colocation_id(id).get() != hpx::find_here()) {
+		return hpx::async<tree::kick_fmm_action>(id, 0, std::move(dchecks), std::move(echecks), std::move(L), stats);
+	} else {
+		if (left || stack_cnt >= MAX_STACK) {
+			return thread_handler<int>(
+					[this](int stack_cnt, std::vector<check_item> &&dchecks, std::vector<check_item> &&echecks, expansion_src &&L, bool &&stats) {
+						return reinterpret_cast<tree*>(ptr)->kick_fmm(stack_cnt, std::move(dchecks), std::move(echecks), std::move(L), std::move(stats));
+					}, stack_cnt, std::move(dchecks), std::move(echecks), std::move(L), std::move(stats));
+		} else {
+			return hpx::make_ready_future(reinterpret_cast<tree*>(ptr)->kick_fmm(stack_cnt, std::move(dchecks), std::move(echecks), std::move(L), stats));
 		}
 	}
 

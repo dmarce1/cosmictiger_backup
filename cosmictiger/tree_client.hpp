@@ -9,7 +9,7 @@
 #define COSMICTIGER_TREE_CLIENT_HPP_
 
 #include <cosmictiger/bucket.hpp>
-#include <cosmictiger/future_data.hpp>
+#include <cosmictiger/expansion.hpp>
 
 class tree;
 class check_item;
@@ -61,6 +61,7 @@ public:
 	hpx::future<std::uint64_t> prune(int, bool) const;
 	hpx::future<int> verify(int, bool) const;
 	std::vector<part_pos> get_positions() const;
+	hpx::future<int> kick_fmm(int stack_cnt, bool, std::vector<check_item> &&dchecks, std::vector<check_item> &&echecks, expansion_src &&L, bool stats);
 	bool local() const {
 		return hpx::get_colocation_id(id).get() == hpx::find_here();
 	}
@@ -70,7 +71,5 @@ public:
 		arc & ptr;
 	}
 };
-
-
 
 #endif /* COSMICTIGER_TREE_CLIENT_HPP_ */

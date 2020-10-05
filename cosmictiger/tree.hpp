@@ -3,6 +3,7 @@
 #include <cosmictiger/bucket.hpp>
 #include <cosmictiger/hpx.hpp>
 #include <cosmictiger/range.hpp>
+#include <cosmictiger/simd.hpp>
 
 #include <array>
 #include <vector>
@@ -11,11 +12,9 @@ class tree_mems;
 class family_check;
 class tree_client;
 
-
 #include <cosmictiger/check.hpp>
 #include <cosmictiger/tree_client.hpp>
 #include <cosmictiger/tree_dir.hpp>
-
 
 #define TREE_OVERFLOW (0x1)
 #define TREE_UNDERFLOW (0x2)
@@ -29,7 +28,7 @@ struct multipole_return {
 	std::uint64_t nactive;
 
 	template<class A>
-	void serialize( A&& arc, unsigned ) {
+	void serialize(A &&arc, unsigned) {
 		arc & info;
 		arc & nactive;
 		arc & prange;
@@ -55,16 +54,19 @@ public:
 	bucket get_parts();
 	std::uint64_t get_ptr();
 	std::uint64_t grow(int, bucket&&);
+	int kick_fmm(int, std::vector<check_item>&&, std::vector<check_item>&&, expansion_src&&, bool);
 	int load_balance(int stack_cnt, std::uint64_t index, std::uint64_t total);
 	tree_client migrate(hpx::id_type);
 	std::uint64_t prune(int);
 	int verify(int) const;
 	std::size_t size() const;
+	std::vector<bool> inspect_checks(std::vector<check_item>&&, bool ewald);
 	/**/HPX_DEFINE_COMPONENT_ACTION(tree,build_tree_dir);
 	/**/HPX_DEFINE_COMPONENT_ACTION(tree,destroy);
 	/**/HPX_DEFINE_COMPONENT_ACTION(tree,drift);
 	/**/HPX_DEFINE_COMPONENT_ACTION(tree,find_home_parent);
 	/**/HPX_DEFINE_COMPONENT_ACTION(tree,find_home_child);
+	/**/HPX_DEFINE_COMPONENT_ACTION(tree,kick_fmm);
 	/**/HPX_DEFINE_COMPONENT_ACTION(tree,grow);
 	/**/HPX_DEFINE_COMPONENT_ACTION(tree,load_balance);
 	/**/HPX_DEFINE_COMPONENT_ACTION(tree,compute_multipoles);
@@ -82,7 +84,7 @@ public:
 
 };
 
-void tree_insert_parts(bucket&& parts);
+void tree_insert_parts(bucket &&parts);
 
 #include <cosmictiger/tree_dir_impl.hpp>
 #include <cosmictiger/tree_mems.hpp>

@@ -5,9 +5,10 @@
 #include <cstdint>
 #include <limits>
 
+static constexpr double POS_MAX = double(std::numeric_limits < std::uint32_t > ::max()) + 1.0;
+static constexpr double POS_INV = 1.0 / POS_MAX;
+
 class position {
-	static constexpr double pos_max = double(std::numeric_limits < std::uint32_t > ::max()) + 1.0;
-	static constexpr double pos_inv = 1.0 / pos_max;
 	std::int32_t i;
 public:DEFAULT_CLASS_MEMBERS(position)
 	;
@@ -18,11 +19,13 @@ public:DEFAULT_CLASS_MEMBERS(position)
 		while (r < 0.0) {
 			r += 1.0;
 		}
-		i = (r - 0.5) * pos_max;
-	//	printf( "%i %e\n", i, r);
+		i = (r - 0.5) * POS_INV;
 	}
 	operator double() const {
-		return double(i) * pos_inv + 0.5;
+		return double(i) * POS_INV + 0.5;
+	}
+	operator int() const {
+		return i;
 	}
 	position operator-(const position &other) const {
 		position rc;
@@ -55,7 +58,5 @@ inline vect<double> double_to_pos(const vect<double> &p1) {
 	return p2;
 }
 
-
 using part_pos = vect<position>;
-
 

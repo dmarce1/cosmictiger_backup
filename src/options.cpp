@@ -22,7 +22,8 @@ bool options::process_options(int argc, char *argv[]) {
 	command_opts.add_options() //
 	("help", "produce help message") //
 	("config_file", po::value < std::string > (&config_file)->default_value(""), "configuration file") //
-	("code_to_cm", po::value < double> (&code_to_cm)->default_value(1.0), "code units to centimers conversion factor") //
+	("code_to_cm", po::value<double>(&code_to_cm)->default_value(1.0), "code units to centimers conversion factor") //
+	("soft_len", po::value<double>(&soft_len)->default_value(0.02), "Plummer softening length in units of mean particle separation") //
 	("input_file", po::value < std::string > (&input_file)->default_value(""), "base name for input files from N-GenIC") //
 	("bucket_size", po::value<int>(&bucket_size)->default_value(64), "maximum number of particles on a node") //
 			;
@@ -49,7 +50,7 @@ bool options::process_options(int argc, char *argv[]) {
 	std::vector<hpx::future<void>> futs;
 	set(*this);
 	for (int i = 1; i < sz; i++) {
-		futs.push_back(hpx::async < set_options_action > (loc[i], *this));
+		futs.push_back(hpx::async<set_options_action>(loc[i], *this));
 	}
 	hpx::wait_all(futs.begin(), futs.end());
 #define SHOW( opt ) std::cout << std::string( #opt ) << " = " << std::to_string(opt) << '\n';

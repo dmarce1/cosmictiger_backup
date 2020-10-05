@@ -46,8 +46,8 @@ set(cosmictiger_header_files
 	cosmictiger/check.hpp	 
 	cosmictiger/cuda_export.hpp  
 	cosmictiger/defs.hpp	 
+	cosmictiger/expansion.hpp	 
 	cosmictiger/fileio.hpp	 
-	cosmictiger/future_data.hpp  
 	cosmictiger/gravity.hpp
 	cosmictiger/gravity_queue.hpp
  	cosmictiger/hpx.hpp	
@@ -59,6 +59,7 @@ set(cosmictiger_header_files
 	cosmictiger/rand.hpp	 
 	cosmictiger/range.hpp	 
 	cosmictiger/read_init.hpp	 
+	cosmictiger/simd.hpp	 
 	cosmictiger/timer.hpp	 
 	cosmictiger/tree.hpp
 	cosmictiger/tree_client.hpp 

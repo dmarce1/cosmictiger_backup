@@ -9,6 +9,7 @@ public:
 	int bucket_size;
 	double code_to_cm;
 	double particle_mass;
+	double soft_len;
 	std::uint64_t problem_size;
 	std::string input_file;
 	std::string config_file;
