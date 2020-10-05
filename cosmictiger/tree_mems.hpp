@@ -20,6 +20,7 @@ struct tree_mems {
 	std::array<std::uint64_t, NCHILD> child_cnt;
 	box_id_type id;
 	std::uint64_t nactive;
+	std::uint64_t work_id;
 	std::atomic<int> lock;
 	std::uint8_t leaf;
 	std::uint8_t level;
@@ -35,6 +36,7 @@ struct tree_mems {
 		for (auto i = other.parts.cbegin(); i != other.parts.cend(); i++) {
 			parts.insert(*i);
 		}
+		work_id = other.work_id;
 		nactive = other.nactive;
 		multi = other.multi;
 		box = other.box;
@@ -49,6 +51,7 @@ struct tree_mems {
 
 	template<class A>
 	void serialize(A &&arc, unsigned) {
+		arc & work_id;
 		arc & nactive;
 		arc & multi;
 		arc & parts;

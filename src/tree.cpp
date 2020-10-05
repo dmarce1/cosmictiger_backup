@@ -3,10 +3,13 @@
 #include <cosmictiger/tree.hpp>
 #include <cosmictiger/tree_dir.hpp>
 #include <cosmictiger/gravity.hpp>
+#include <cosmictiger/gravity_queue.hpp>
 
 #include <atomic>
 #include <stack>
 #include <thread>
+
+#define WORKGROUP_SIZE 64
 
 #ifdef HPX_LITE
 HPX_REGISTER_MINIMAL_COMPONENT_FACTORY(hpx::components::managed_component<tree>, tree);
@@ -58,6 +61,29 @@ HPX_PLAIN_ACTION (tree_broadcast_directory);
 HPX_PLAIN_ACTION (tree_complete_drift);
 HPX_PLAIN_ACTION (tree_cleanup);
 HPX_PLAIN_ACTION (tree_set_fmm_params);
+
+int tree_ewald_min_level(double theta, double h) {
+	int lev = 12;
+	while (1) {
+		int N = 1 << (lev / NDIM);
+		double dx = 0.25 * N - 1.0;
+		double a;
+		if (lev % NDIM == 0) {
+			a = std::sqrt(3);
+		} else if (lev % NDIM == 1) {
+			a = 1.5;
+		} else {
+			a = std::sqrt(1.5);
+		}
+		double r = 2 * (a + h) / theta;
+		//	printf( "%e %e\n", dx, r );
+		if (dx > r) {
+			break;
+		}
+		lev++;
+	}
+	return lev;
+}
 
 void tree_insert_parts(bucket &&parts) {
 	directory->find_home(0, std::move(parts));
@@ -179,7 +205,7 @@ tree_dir tree::build_tree_dir(tree_client self) const {
 	return dir;
 }
 
-multipole_return tree::compute_multipoles(int stack_cnt, int rung) {
+multipole_return tree::compute_multipoles(int stack_cnt, int rung, std::uint64_t work_id) {
 	multipole_return rc;
 	std::uint64_t nactive = 0;
 	vect<double> xc;
@@ -191,6 +217,9 @@ multipole_return tree::compute_multipoles(int stack_cnt, int rung) {
 		xc[dim] = 0.0;
 		prange.max[dim] = 0.0;
 		prange.min[dim] = 1.0;
+	}
+	if (work_id == -1 && size() <= WORKGROUP_SIZE * opts.bucket_size) {
+		work_id = gravity_queue_genid();
 	}
 	if (tptr->leaf) {
 		const auto m = opts.particle_mass;
@@ -228,8 +257,8 @@ multipole_return tree::compute_multipoles(int stack_cnt, int rung) {
 			prange.max = prange.min = xc;
 		}
 	} else {
-		auto futl = tptr->left_child.compute_multipoles(stack_cnt, true, rung);
-		auto futr = tptr->right_child.compute_multipoles(stack_cnt, false, rung);
+		auto futl = tptr->left_child.compute_multipoles(stack_cnt, true, rung, work_id);
+		auto futr = tptr->right_child.compute_multipoles(stack_cnt, false, rung, work_id);
 		auto L = futl.get();
 		auto R = futr.get();
 		tptr->child_info[0].multi = L.info.multi;
@@ -278,6 +307,10 @@ multipole_return tree::compute_multipoles(int stack_cnt, int rung) {
 	tptr->multi.x = double_to_pos(xc);
 	tptr->multi.r = r;
 	tptr->nactive = nactive;
+	tptr->work_id = work_id;
+	if (work_id != -1) {
+		gravity_queue_checkin(work_id);
+	}
 	rc.info.multi = &tptr->multi;
 	rc.info.leaf = tptr->leaf;
 	rc.nactive = nactive;
@@ -358,7 +391,7 @@ std::uint64_t tree::get_ptr() {
 }
 
 std::uint64_t tree::grow(int stack_cnt, bucket &&parts) {
-	const int min_level = bits_to_level(hpx_localities().size());
+	const int min_level = std::max(bits_to_level(hpx_localities().size()), tree_ewald_min_level(fmm.theta, opts.h));
 	if (tptr->leaf) {
 		if (tptr->level < min_level || parts.size() + tptr->parts.size() > opts.bucket_size) {
 			create_children();
@@ -403,7 +436,7 @@ bucket tree::get_parts() {
 }
 
 std::vector<bool> tree::checks_far(const std::vector<check_item> &checks, bool ewald) {
-	static const float h = SELF_PHI * opts.soft_len * std::pow(opts.problem_size, -1.0 / 3.0);
+	static const float h = opts.h;
 	const simd_float R1 = tptr->multi.r + float(2) * h;
 	const vect<simd_int> X1 = tptr->multi.x;
 	const simd_float Thetainv = 1.0 / fmm.theta;
@@ -503,8 +536,23 @@ int tree::kick_fmm(int stack_cnt, std::vector<check_item> &&dchecks, std::vector
 				dchecks_fut = get_next_checklist(std::move(next_dchecks));
 				next_dchecks = dchecks_fut.get();
 			}
+			auto x = std::make_shared<std::vector<part_pos>>();
+			for (auto i = tptr->parts.begin(); i != tptr->parts.end(); i++) {
+				if (i->rung >= fmm.min_rung) {
+					x->push_back(i->x);
+				}
+			}
+			const auto xcom = pos_to_double(tptr->multi.x);
+			auto f = std::make_shared < std::vector < _4force >> (x->size());
+			for (auto i = 0; i != x->size(); i++) {
+				_4force this_f;
+				L.l.translate_L2(this_f.g, this_f.phi, vect<float>(pos_to_double((*x)[i]) - xcom));
+				(*f)[i].phi = this_f.phi;
+				(*f)[i].g = this_f.g;
+			}
+			gravity_queue_add_work(tptr->work_id, f, x, std::move(PP_list), std::move(PC_list), []() {
 
-			// DO GRAVITY //
+			});
 
 		} else {
 			auto futl = tptr->left_child.kick_fmm(stack_cnt, true, dchecks, echecks, L);
@@ -514,7 +562,7 @@ int tree::kick_fmm(int stack_cnt, std::vector<check_item> &&dchecks, std::vector
 		}
 
 	}
-
+	return 0;
 }
 
 int tree::load_balance(int stack_cnt, std::uint64_t index, std::uint64_t total) {
@@ -604,7 +652,7 @@ std::size_t tree::size() const {
 }
 
 int tree::verify(int stack_cnt) const {
-	const int min_level = bits_to_level(hpx_localities().size());
+	const int min_level = std::max(bits_to_level(hpx_localities().size()), tree_ewald_min_level(fmm.theta, opts.h));
 	int rc = 0;
 	if (tptr->leaf) {
 		if (size() > opts.bucket_size) {

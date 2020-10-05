@@ -58,7 +58,7 @@ public:
 	tree(const tree&);
 	~tree();
 	tree_dir build_tree_dir(tree_client) const;
-	multipole_return compute_multipoles(int, int);
+	multipole_return compute_multipoles(int, int, std::uint64_t);
 	void create_children();
 	int destroy(int);
 	std::uint64_t drift(int, int, tree_client, tree_client, float dt);

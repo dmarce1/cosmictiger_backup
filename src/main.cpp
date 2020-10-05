@@ -8,9 +8,10 @@
 
 #include <ctime>
 
+
 int hpx_main(int argc, char *argv[]) {
 	opts.process_options(argc, argv);
-
+	return hpx::finalize();
 	printf("Creating root node\n");
 	range root_box;
 	for (int dim = 0; dim < NDIM; dim++) {

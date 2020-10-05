@@ -1,4 +1,5 @@
 #define OPTIONS_CPP
+#include <cosmictiger/gravity.hpp>
 #include <cosmictiger/options.hpp>
 #include <cosmictiger/hpx.hpp>
 #include <boost/program_options.hpp>
@@ -45,6 +46,7 @@ bool options::process_options(int argc, char *argv[]) {
 		}
 	}
 	po::notify(vm);
+	opts.h = SELF_PHI * opts.soft_len * std::pow(opts.problem_size, -1.0 / 3.0);
 	const auto loc = hpx::find_all_localities();
 	const auto sz = loc.size();
 	std::vector<hpx::future<void>> futs;
