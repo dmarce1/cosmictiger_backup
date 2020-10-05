@@ -35,6 +35,21 @@ struct multipole_return {
 	}
 };
 
+struct fmm_params {
+	float theta;
+	int min_rung;
+	bool stats;
+
+	template<class A>
+	void serialize(A&& arc, unsigned) {
+		arc & theta;
+		arc & min_rung;
+		arc & stats;
+	}
+};
+
+void tree_set_fmm_params(fmm_params);
+
 class tree: public hpx::components::managed_component_base<tree> {
 	tree_mems *tptr;
 public:
@@ -54,13 +69,13 @@ public:
 	bucket get_parts();
 	std::uint64_t get_ptr();
 	std::uint64_t grow(int, bucket&&);
-	int kick_fmm(int, std::vector<check_item>&&, std::vector<check_item>&&, expansion_src&&, bool);
+	int kick_fmm(int, std::vector<check_item>&&, std::vector<check_item>&&, expansion_src&&);
 	int load_balance(int stack_cnt, std::uint64_t index, std::uint64_t total);
 	tree_client migrate(hpx::id_type);
 	std::uint64_t prune(int);
 	int verify(int) const;
 	std::size_t size() const;
-	std::vector<bool> inspect_checks(std::vector<check_item>&&, bool ewald);
+	std::vector<bool> checks_far(const std::vector<check_item>&, bool ewald);
 	/**/HPX_DEFINE_COMPONENT_ACTION(tree,build_tree_dir);
 	/**/HPX_DEFINE_COMPONENT_ACTION(tree,destroy);
 	/**/HPX_DEFINE_COMPONENT_ACTION(tree,drift);

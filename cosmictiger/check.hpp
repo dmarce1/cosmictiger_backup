@@ -74,4 +74,6 @@ struct check_item {
 
 using check_pair = std::pair<check_item, check_item>;
 
+hpx::future<std::vector<check_item>> get_next_checklist(std::vector<check_item> &&old);
+
 #endif /* COSMICTIGER_CHECK_ITEM_HPP_ */

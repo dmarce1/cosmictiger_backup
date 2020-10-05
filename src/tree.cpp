@@ -48,7 +48,7 @@ HPX_REGISTER_COMPONENT(hpx::components::managed_component<tree>, tree);
 #endif
 
 static std::shared_ptr<tree_dir> directory;
-static float theta_inv = 1.0 / 0.7;
+static fmm_params fmm;
 
 void tree_broadcast_directory(const tree_dir &dir);
 void tree_cleanup();
@@ -57,6 +57,7 @@ void tree_complete_drift();
 HPX_PLAIN_ACTION (tree_broadcast_directory);
 HPX_PLAIN_ACTION (tree_complete_drift);
 HPX_PLAIN_ACTION (tree_cleanup);
+HPX_PLAIN_ACTION (tree_set_fmm_params);
 
 void tree_insert_parts(bucket &&parts) {
 	directory->find_home(0, std::move(parts));
@@ -91,6 +92,21 @@ void tree_complete_drift() {
 		futs.push_back(hpx::async<tree_complete_drift_action>(localities[ir]));
 	}
 	directory->retire_futures();
+	hpx::wait_all(futs.begin(), futs.end());
+}
+
+void tree_set_fmm_params(fmm_params p) {
+	const auto &localities = hpx_localities();
+	const int il = ((hpx::get_locality_id() + 1) << 1) - 1;
+	const int ir = ((hpx::get_locality_id() + 1) << 1);
+	std::vector<hpx::future<void>> futs;
+	if (il < localities.size()) {
+		futs.push_back(hpx::async<tree_set_fmm_params_action>(localities[il], p));
+	}
+	if (ir < localities.size()) {
+		futs.push_back(hpx::async<tree_set_fmm_params_action>(localities[ir], p));
+	}
+	fmm = p;
 	hpx::wait_all(futs.begin(), futs.end());
 }
 
@@ -386,11 +402,11 @@ bucket tree::get_parts() {
 	return std::move(tptr->parts);
 }
 
-std::vector<bool> tree::inspect_checks(std::vector<check_item> &&checks, bool ewald) {
+std::vector<bool> tree::checks_far(const std::vector<check_item> &checks, bool ewald) {
 	static const float h = SELF_PHI * opts.soft_len * std::pow(opts.problem_size, -1.0 / 3.0);
 	const simd_float R1 = tptr->multi.r + float(2) * h;
 	const vect<simd_int> X1 = tptr->multi.x;
-	const simd_float Thetainv = theta_inv;
+	const simd_float Thetainv = 1.0 / fmm.theta;
 	const int simd_size = (checks.size() - 1) / simd_float::size() + 1;
 	std::vector<simd_float> R2(simd_size);
 	std::vector<vect<simd_int>> X2(simd_size);
@@ -424,10 +440,78 @@ std::vector<bool> tree::inspect_checks(std::vector<check_item> &&checks, bool ew
 	return res;
 }
 
-int tree::kick_fmm(int stack_cnt, std::vector<check_item> &&dchecks, std::vector<check_item> &&echecks, expansion_src &&L, bool stats) {
+int tree::kick_fmm(int stack_cnt, std::vector<check_item> &&dchecks, std::vector<check_item> &&echecks, expansion_src &&L) {
 
+	std::vector<check_item> next_dchecks;
+	std::vector<check_item> next_echecks;
+	std::vector<tree_client> PP_list;
+	std::vector<tree_client> CP_list;
+	std::vector<multi_src*> PC_list;
+	std::vector<multi_src*> CC_list;
+	std::vector<multi_src*> ewald_list;
 	if (tptr->nactive > 0) {
 		L.l = L.l << (pos_to_double(tptr->multi.x) - L.x);
+
+		auto far = checks_far(dchecks, false);
+		for (int i = 0; i < dchecks.size(); i++) {
+			const auto &pos = dchecks[i].info->node;
+			const auto &mpole = dchecks[i].info->multi;
+			if (far[i]) {
+				if (dchecks[i].opened) {
+					CP_list.push_back(pos);
+				} else {
+					CC_list.push_back(mpole);
+				}
+			} else {
+				next_dchecks.push_back(dchecks[i]);
+			}
+		}
+		far = checks_far(echecks, true);
+		for (int i = 0; i < echecks.size(); i++) {
+			const auto &pos = echecks[i].info->node;
+			const auto &mpole = echecks[i].info->multi;
+			if (far[i]) {
+				assert(!dchecks[i].opened);
+				ewald_list.push_back(mpole);
+			} else {
+				next_echecks.push_back(echecks[i]);
+			}
+		}
+		auto dchecks_fut = get_next_checklist(std::move(next_dchecks));
+		auto echecks_fut = get_next_checklist(std::move(next_echecks));
+
+		// DO GRAVITY //
+
+		next_dchecks = dchecks_fut.get();
+		next_echecks = echecks_fut.get();
+		if (tptr->leaf) {
+			while (dchecks.size()) {
+				const auto far = checks_far(dchecks, false);
+				for (int i = 0; i < dchecks.size(); i++) {
+					const auto &pos = dchecks[i].info->node;
+					const auto &mpole = dchecks[i].info->multi;
+					if (dchecks[i].opened) {
+						PP_list.push_back(pos);
+					} else {
+						if (far[i]) {
+							PC_list.push_back(mpole);
+						} else {
+							next_dchecks.push_back(dchecks[i]);
+						}
+					}
+				}
+				dchecks_fut = get_next_checklist(std::move(next_dchecks));
+				next_dchecks = dchecks_fut.get();
+			}
+
+			// DO GRAVITY //
+
+		} else {
+			auto futl = tptr->left_child.kick_fmm(stack_cnt, true, dchecks, echecks, L);
+			auto futr = tptr->right_child.kick_fmm(stack_cnt, false, std::move(dchecks), std::move(echecks), L);
+			futl.get();
+			futr.get();
+		}
 
 	}
 

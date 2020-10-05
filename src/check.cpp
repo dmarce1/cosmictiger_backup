@@ -35,7 +35,7 @@ std::vector<check_pair> get_check_pair_remote(const std::vector<tree_client> &id
 
 HPX_PLAIN_ACTION (get_check_pair_remote);
 
-std::vector<check_item> get_next_checklist(std::vector<check_item> &&old) {
+hpx::future<std::vector<check_item>> get_next_checklist(std::vector<check_item> &&old) {
 	std::vector<check_item> next;
 	std::unordered_map<int, std::vector<tree_client>> get_list;
 	std::vector<tree_client> wait_list;
@@ -65,44 +65,50 @@ std::vector<check_item> get_next_checklist(std::vector<check_item> &&old) {
 			i++;
 		}
 	}
-	std::vector < hpx::future<std::vector<check_pair>> > futs;
-	for (auto &get : get_list) {
-		futs.push_back(hpx::async<get_check_pair_remote_action>(hpx_localities()[get.first], get.second));
-	}
 
-	i = 0;
-	for (auto &get : get_list) {
-		auto this_list = futs[i].get();
-		for (int j = 0; j < this_list.size(); i++) {
-			next.push_back(this_list[j].first);
-			next.push_back(this_list[j].second);
-			const auto id = old[i].info->node;
-			const int index = gen_index(id);
-			std::lock_guard<mutex_type> lock(cache_mutex[index]);
-			cache[index][id].checks = this_list[j];
-			cache[index][id].ready = true;
-		}
-		i++;
-	}
-
-	for (auto &id : wait_list) {
-		const int index = gen_index(id);
-		bool done = false;
-		do {
-			std::unique_lock<mutex_type> lock(cache_mutex[index]);
-			auto &entry = cache[index][id];
-			if (entry.ready) {
-				next.push_back(entry.checks.first);
-				next.push_back(entry.checks.second);
-				done = true;
-			} else {
-				lock.unlock();
-				hpx::this_thread::yield();
+	if (get_list.size() || wait_list.size()) {
+		return hpx::async([](decltype(old) old, decltype(next) next, decltype(get_list) get_list, decltype(wait_list) wait_list) {
+			std::vector < hpx::future<std::vector<check_pair>> > futs;
+			for (auto &get : get_list) {
+				futs.push_back(hpx::async<get_check_pair_remote_action>(hpx_localities()[get.first], get.second));
 			}
-		} while (!done);
 
+			int i = 0;
+			for (auto &get : get_list) {
+				auto this_list = futs[i].get();
+				for (int j = 0; j < this_list.size(); i++) {
+					next.push_back(this_list[j].first);
+					next.push_back(this_list[j].second);
+					const auto id = old[i].info->node;
+					const int index = gen_index(id);
+					std::lock_guard<mutex_type> lock(cache_mutex[index]);
+					cache[index][id].checks = this_list[j];
+					cache[index][id].ready = true;
+				}
+				i++;
+			}
+
+			for (auto &id : wait_list) {
+				const int index = gen_index(id);
+				bool done = false;
+				do {
+					std::unique_lock<mutex_type> lock(cache_mutex[index]);
+					auto &entry = cache[index][id];
+					if (entry.ready) {
+						next.push_back(entry.checks.first);
+						next.push_back(entry.checks.second);
+						done = true;
+					} else {
+						lock.unlock();
+						hpx::this_thread::yield();
+					}
+				} while (!done);
+			}
+			return std::move(next);
+		},std::move(old), std::move(next), std::move(get_list), std::move(wait_list));
+	} else {
+		return hpx::make_ready_future(std::move(next));
 	}
-	return std::move(next);
 }
 
 std::stack<void*, std::vector<void*>> stack;
