@@ -46,7 +46,6 @@ bool options::process_options(int argc, char *argv[]) {
 		}
 	}
 	po::notify(vm);
-	opts.h = SELF_PHI * opts.soft_len * std::pow(opts.problem_size, -1.0 / 3.0);
 	const auto loc = hpx::find_all_localities();
 	const auto sz = loc.size();
 	std::vector<hpx::future<void>> futs;
@@ -59,6 +58,7 @@ bool options::process_options(int argc, char *argv[]) {
 #define SHOW_STR( opt ) std::cout << std::string( #opt ) << " = " << opt << '\n';
 	SHOW(bucket_size);
 	SHOW_STR(config_file);
-	SHOW_STR(problem_size);
+	SHOW_STR(soft_len);
+//	SHOW_STR(problem_size);
 	return true;
 }

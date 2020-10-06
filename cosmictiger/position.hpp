@@ -10,8 +10,8 @@ static constexpr double POS_INV = 1.0 / POS_MAX;
 
 class position {
 	std::int32_t i;
-public:DEFAULT_CLASS_MEMBERS(position)
-	;
+public:
+	/**/DEFAULT_CLASS_MEMBERS(position);
 	position(double r) {
 		while (r >= 1.0) {
 			r -= 1.0;
@@ -19,7 +19,8 @@ public:DEFAULT_CLASS_MEMBERS(position)
 		while (r < 0.0) {
 			r += 1.0;
 		}
-		i = (r - 0.5) * POS_INV;
+		i = (r - 0.5) * POS_MAX;
+//		printf( "%e %i %e\n", r, i, POS_INV);
 	}
 	operator double() const {
 		return double(i) * POS_INV + 0.5;

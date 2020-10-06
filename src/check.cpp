@@ -18,8 +18,10 @@ struct tree_client_hash {
 };
 
 using map_type = std::unordered_map<tree_client, cache_entry, tree_client_hash>;
-map_type cache[CACHE_SIZE];
-mutex_type cache_mutex[CACHE_SIZE];
+static map_type cache[CACHE_SIZE];
+static mutex_type cache_mutex[CACHE_SIZE];
+static std::stack<void*, std::vector<void*>> stack;
+static mutex_type mtx;
 
 int gen_index(const tree_client &id) {
 	return (id.get_ptr() >> 3) % CACHE_SIZE;
@@ -110,9 +112,6 @@ hpx::future<std::vector<check_item>> get_next_checklist(std::vector<check_item> 
 		return hpx::make_ready_future(std::move(next));
 	}
 }
-
-std::stack<void*, std::vector<void*>> stack;
-mutex_type mtx;
 
 void* check_allocate(std::size_t size) {
 	auto *ptr = malloc(size);

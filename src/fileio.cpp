@@ -1,5 +1,6 @@
 #include <cosmictiger/tree.hpp>
 #include <cosmictiger/fileio.hpp>
+#include <cosmictiger/gravity.hpp>
 #include <cosmictiger/hpx.hpp>
 #include <cosmictiger/options.hpp>
 
@@ -62,6 +63,7 @@ void fileio_init_read() {
 	FREAD_ASSERT(fread(&dummy, sizeof(dummy), 1, fp));
 	const std::uint64_t total_parts = std::uint64_t(header.npartTotal[1]) + (std::uint64_t(header.npartTotal[2]) << std::uint64_t(32));
 	opts.problem_size = total_parts;
+	opts.h = SELF_PHI * opts.soft_len * std::pow(opts.problem_size, -1.0 / 3.0);
 	opts.particle_mass = header.mass[1];
 	if (locality = 0) {
 		printf("Reading %li particles\n", total_parts);
@@ -107,6 +109,7 @@ void fileio_init_read() {
 		part.step = 0;
 		part.group = 0;
 		parts.insert(part);
+//		printf( "%e\n", x);
 	}
 	FREAD_ASSERT(fread(&dummy, sizeof(dummy), 1, fp));
 	FREAD_ASSERT(fread(&dummy, sizeof(dummy), 1, fp));

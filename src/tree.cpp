@@ -82,6 +82,7 @@ int tree_ewald_min_level(double theta, double h) {
 		}
 		lev++;
 	}
+	return 0;
 	return lev;
 }
 
@@ -205,7 +206,7 @@ tree_dir tree::build_tree_dir(tree_client self) const {
 	return dir;
 }
 
-multipole_return tree::compute_multipoles(int stack_cnt, int rung, std::uint64_t work_id) {
+multipole_return tree::compute_multipoles(int stack_cnt, std::uint64_t work_id) {
 	multipole_return rc;
 	std::uint64_t nactive = 0;
 	vect<double> xc;
@@ -226,7 +227,7 @@ multipole_return tree::compute_multipoles(int stack_cnt, int rung, std::uint64_t
 		if (tptr->parts.size()) {
 			for (auto i = tptr->parts.begin(); i != tptr->parts.end(); i++) {
 				const auto x = pos_to_double(i->x);
-				if (i->rung >= rung) {
+				if (i->rung >= fmm.min_rung) {
 					nactive++;
 				}
 				for (int dim = 0; dim < NDIM; dim++) {
@@ -257,8 +258,8 @@ multipole_return tree::compute_multipoles(int stack_cnt, int rung, std::uint64_t
 			prange.max = prange.min = xc;
 		}
 	} else {
-		auto futl = tptr->left_child.compute_multipoles(stack_cnt, true, rung, work_id);
-		auto futr = tptr->right_child.compute_multipoles(stack_cnt, false, rung, work_id);
+		auto futl = tptr->left_child.compute_multipoles(stack_cnt, true, work_id);
+		auto futr = tptr->right_child.compute_multipoles(stack_cnt, false, work_id);
 		auto L = futl.get();
 		auto R = futr.get();
 		tptr->child_info[0].multi = L.info.multi;
@@ -392,6 +393,7 @@ std::uint64_t tree::get_ptr() {
 
 std::uint64_t tree::grow(int stack_cnt, bucket &&parts) {
 	const int min_level = std::max(bits_to_level(hpx_localities().size()), tree_ewald_min_level(fmm.theta, opts.h));
+//	printf("%i %i %i %i\n", tptr->level, min_level, (parts.size() + tptr->parts.size()), opts.bucket_size);
 	if (tptr->leaf) {
 		if (tptr->level < min_level || parts.size() + tptr->parts.size() > opts.bucket_size) {
 			create_children();
@@ -416,6 +418,7 @@ std::uint64_t tree::grow(int stack_cnt, bucket &&parts) {
 		const double xmid = 0.5 * (tptr->box.max[dim] + tptr->box.min[dim]);
 		auto i = parts_left.begin();
 		while (i != parts_left.end()) {
+	//		printf("%li %e %e\n", i->x[dim], double(i->x[dim]), xmid);
 			if (double(i->x[dim]) >= xmid) {
 				parts_right.insert(*i);
 				i = parts_left.remove(i);
@@ -617,13 +620,14 @@ tree_client tree::migrate(hpx::id_type locality) {
 }
 
 std::uint64_t tree::prune(int stack_cnt) {
+	const int min_level = std::max(bits_to_level(hpx_localities().size()), tree_ewald_min_level(fmm.theta, opts.h));
 	tptr->parent = tree_client();
 	if (!tptr->leaf) {
 		auto futl = tptr->left_child.prune(stack_cnt, true);
 		auto futr = tptr->right_child.prune(stack_cnt, false);
 		tptr->child_cnt[0] = futl.get();
 		tptr->child_cnt[1] = futr.get();
-		if (size() <= opts.bucket_size) {
+		if (size() <= opts.bucket_size && tptr->level > min_level) {
 			auto futl = tptr->left_child.get_parts();
 			auto futr = tptr->right_child.get_parts();
 			auto tmpl = futl.get();

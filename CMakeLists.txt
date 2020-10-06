@@ -32,6 +32,7 @@ set(cosmictiger_source_files
 	src/hpx.cpp
 	src/main.cpp
 	src/options.cpp
+	src/output.cpp
 	src/pos_cache.cpp
 	src/rand.cpp
 	src/range.cpp
@@ -53,6 +54,7 @@ set(cosmictiger_header_files
  	cosmictiger/hpx.hpp	
 	cosmictiger/multipole.hpp	
 	cosmictiger/options.hpp	
+	cosmictiger/output.hpp	
 	cosmictiger/particle.hpp	
 	cosmictiger/pos_cache.hpp	
 	cosmictiger/position.hpp	
@@ -60,6 +62,7 @@ set(cosmictiger_header_files
 	cosmictiger/range.hpp	 
 	cosmictiger/read_init.hpp	 
 	cosmictiger/simd.hpp	 
+	cosmictiger/time.hpp	 
 	cosmictiger/timer.hpp	 
 	cosmictiger/tree.hpp
 	cosmictiger/tree_client.hpp 
