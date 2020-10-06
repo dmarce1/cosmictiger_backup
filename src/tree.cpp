@@ -77,7 +77,7 @@ int tree_ewald_min_level(double theta, double h) {
 		} else {
 			a = std::sqrt(1.5) / 2.0;
 		}
-		double r = 2 * (a + h) / theta;
+		double r = 2 * (a + h * N) / theta;
 		if (dx > r) {
 			break;
 		}
@@ -399,8 +399,9 @@ std::uint64_t tree::get_ptr() {
 	return reinterpret_cast<std::uint64_t>(this);
 }
 
-std::uint64_t tree::grow(int stack_cnt, bucket &&parts) {
-	const int min_level = std::max(bits_to_level(hpx_localities().size()), tree_ewald_min_level(fmm.theta, opts.h));
+std::uint64_t tree::grow(int stack_cnt, bucket &&parts, bool first_pass) {
+	const auto dist_level = bits_to_level(hpx_localities().size());
+	const int min_level = first_pass ? dist_level : std::max(dist_level, tree_ewald_min_level(fmm.theta, opts.h));
 //	printf("%i %i %i %i\n", tptr->level, min_level, (parts.size() + tptr->parts.size()), opts.bucket_size);
 	if (tptr->leaf) {
 		if (tptr->level < min_level || parts.size() + tptr->parts.size() > opts.bucket_size) {
@@ -434,8 +435,8 @@ std::uint64_t tree::grow(int stack_cnt, bucket &&parts) {
 				i++;
 			}
 		}
-		auto futl = tptr->left_child.grow(stack_cnt, true, std::move(parts_left));
-		auto futr = tptr->right_child.grow(stack_cnt, false, std::move(parts_right));
+		auto futl = tptr->left_child.grow(stack_cnt, true, std::move(parts_left), first_pass);
+		auto futr = tptr->right_child.grow(stack_cnt, false, std::move(parts_right), first_pass);
 		tptr->child_cnt[0] = futl.get();
 		tptr->child_cnt[1] = futr.get();
 	}
@@ -576,12 +577,14 @@ int tree::kick_fmm(int stack_cnt, std::vector<check_item> &&dchecks, std::vector
 	return 0;
 }
 
-int tree::load_balance(int stack_cnt, std::uint64_t index, std::uint64_t total) {
+tree_stats tree::load_balance(int stack_cnt, std::uint64_t index, std::uint64_t total) {
+	tree_stats stats;
 	if (!tptr->leaf) {
+		stats.nnode++;
 		auto futl = tptr->left_child.load_balance(stack_cnt, true, index, total);
 		auto futr = tptr->right_child.load_balance(stack_cnt, false, index + tptr->child_cnt[0], total);
-		futl.get();
-		futr.get();
+		stats += futl.get();
+		stats += futr.get();
 		const auto &localities = hpx_localities();
 		const int min_level = bits_to_level(localities.size());
 		std::uint64_t il, ir;
@@ -596,10 +599,12 @@ int tree::load_balance(int stack_cnt, std::uint64_t index, std::uint64_t total) 
 			hpx::future<tree_client> newl;
 			hpx::future<tree_client> newr;
 			if (il != hpx::get_locality_id()) {
+				stats.nmig++;
 //				printf( "Migrating from %i to %i\n", hpx::get_locality_id(), il);
 				newl = tptr->left_child.migrate(localities[il]);
 			}
 			if (ir != hpx::get_locality_id()) {
+				stats.nmig++;
 //				printf( "Migrating from %i to %i\n", hpx::get_locality_id(), ir);
 				newr = tptr->right_child.migrate(localities[ir]);
 			}
@@ -610,8 +615,11 @@ int tree::load_balance(int stack_cnt, std::uint64_t index, std::uint64_t total) 
 				tptr->right_child = newr.get();
 			}
 		}
+	} else {
+		stats.nnode++;
+		stats.nleaf++;
 	}
-	return 0;
+	return stats;
 }
 
 tree_client tree::migrate(hpx::id_type locality) {
@@ -650,7 +658,7 @@ std::uint64_t tree::prune(int stack_cnt) {
 			tptr->leaf = true;
 		}
 	} else if (tptr->parts.size() > opts.bucket_size) {
-		grow(stack_cnt + 1, bucket());
+		grow(stack_cnt + 1, bucket(), false);
 	}
 	return size();
 }

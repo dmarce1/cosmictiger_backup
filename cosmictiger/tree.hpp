@@ -48,6 +48,27 @@ struct fmm_params {
 	}
 };
 
+struct tree_stats {
+	std::uint64_t nmig;
+	std::uint64_t nnode;
+	std::uint64_t nleaf;
+	template<class A>
+	void serialize(A&& arc, unsigned) {
+		arc & nmig;
+		arc & nnode;
+		arc & nleaf;
+	}
+	tree_stats() {
+		nmig = nnode = nleaf = 0;
+	}
+	tree_stats& operator+=( const tree_stats& other) {
+		nmig += other.nmig;
+		nnode += other.nnode;
+		nleaf += other.nleaf;
+		return *this;
+	}
+};
+
 void tree_set_fmm_params(fmm_params);
 
 class tree: public hpx::components::managed_component_base<tree> {
@@ -69,9 +90,9 @@ public:
 	std::vector<part_pos> get_positions() const;
 	bucket get_parts();
 	std::uint64_t get_ptr();
-	std::uint64_t grow(int, bucket&&);
+	std::uint64_t grow(int, bucket&&, bool);
 	int kick_fmm(int, std::vector<check_item>&&, std::vector<check_item>&&, expansion_src&&);
-	int load_balance(int stack_cnt, std::uint64_t index, std::uint64_t total);
+	tree_stats load_balance(int stack_cnt, std::uint64_t index, std::uint64_t total);
 	tree_client migrate(hpx::id_type);
 	std::uint64_t prune(int);
 	int verify(int) const;

@@ -74,16 +74,16 @@ hpx::future<std::uint64_t> tree_client::prune(int stack_cnt, bool left) const {
 		}
 	}
 }
-hpx::future<std::uint64_t> tree_client::grow(int stack_cnt, bool left, bucket &&parts) const {
+hpx::future<std::uint64_t> tree_client::grow(int stack_cnt, bool left, bucket &&parts, bool first_pass) const {
 	if (hpx::get_colocation_id(id).get() != hpx::find_here()) {
-		return hpx::async<tree::grow_action>(id, 0, std::move(parts));
+		return hpx::async<tree::grow_action>(id, 0, std::move(parts), first_pass);
 	} else {
 		if (left || stack_cnt >= MAX_STACK) {
-			return thread_handler<std::uint64_t>([this](int stack_cnt, bucket &&parts) {
-				return reinterpret_cast<tree*>(ptr)->grow(stack_cnt, std::move(parts));
+			return thread_handler<std::uint64_t>([this,first_pass](int stack_cnt, bucket &&parts) {
+				return reinterpret_cast<tree*>(ptr)->grow(stack_cnt, std::move(parts), first_pass);
 			}, stack_cnt, std::move(parts));
 		} else {
-			return hpx::make_ready_future(reinterpret_cast<tree*>(ptr)->grow(stack_cnt, std::move(parts)));
+			return hpx::make_ready_future(reinterpret_cast<tree*>(ptr)->grow(stack_cnt, std::move(parts), first_pass));
 		}
 	}
 }
@@ -102,12 +102,12 @@ hpx::future<multipole_return> tree_client::compute_multipoles(int stack_cnt, boo
 	}
 }
 
-hpx::future<int> tree_client::load_balance(int stack_cnt, bool left, std::uint64_t cnt, std::uint64_t cnt2) const {
+hpx::future<tree_stats> tree_client::load_balance(int stack_cnt, bool left, std::uint64_t cnt, std::uint64_t cnt2) const {
 	if (hpx::get_colocation_id(id).get() != hpx::find_here()) {
 		return hpx::async<tree::load_balance_action>(id, 0, cnt, cnt2);
 	} else {
 		if (left || stack_cnt >= MAX_STACK) {
-			return thread_handler<int>([this, cnt, cnt2](int stack_cnt) {
+			return thread_handler<tree_stats>([this, cnt, cnt2](int stack_cnt) {
 				return reinterpret_cast<tree*>(ptr)->load_balance(stack_cnt, cnt, cnt2);
 			}, stack_cnt);
 		} else {
