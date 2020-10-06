@@ -316,6 +316,7 @@ multipole_return tree::compute_multipoles(int stack_cnt, std::uint64_t work_id) 
 	rc.info.leaf = tptr->leaf;
 	rc.nactive = nactive;
 	rc.prange = prange;
+	printf( "%i %e %e\n",tptr->level, tptr->multi.r, M());
 	return rc;
 }
 

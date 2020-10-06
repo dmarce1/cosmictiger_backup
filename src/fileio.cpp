@@ -65,7 +65,7 @@ void fileio_init_read() {
 	opts.problem_size = total_parts;
 	opts.h = SELF_PHI * opts.soft_len * std::pow(opts.problem_size, -1.0 / 3.0);
 	opts.particle_mass = header.mass[1];
-	if (locality = 0) {
+	if (locality == 0) {
 		printf("Reading %li particles\n", total_parts);
 		printf("Z =             %e\n", header.redshift);
 		printf("particle mass = %e\n", header.mass[1]);
