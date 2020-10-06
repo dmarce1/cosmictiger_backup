@@ -476,7 +476,7 @@ std::vector<bool> tree::checks_far(const std::vector<check_item> &checks, bool e
 		if (ewald) {
 			dist = max(simd_float(0.25), dist);
 		}
-		const simd_float b = dist < (R2[i] + R1) * Thetainv;
+		const simd_float b = dist > (R2[i] + R1) * Thetainv;
 		for (int j = 0; j < simd_float::size(); j++) {
 			const auto k = std::min(simd_float::size() * i + j, res.size() - 1);
 			res[k] = b[j];
@@ -495,6 +495,7 @@ int tree::kick_fmm(int stack_cnt, std::vector<check_item> &&dchecks, std::vector
 	std::vector<multi_src*> CC_list;
 	std::vector<multi_src*> ewald_list;
 	const auto xcom = pos_to_double(tptr->multi.x);
+	printf( "kick_fmm %li %li\n", dchecks.size(), echecks.size());
 	if (tptr->nactive > 0) {
 		L.l = L.l << (xcom - L.x);
 		L.x = xcom;
@@ -528,8 +529,8 @@ int tree::kick_fmm(int stack_cnt, std::vector<check_item> &&dchecks, std::vector
 
 		// DO GRAVITY //
 
-		next_dchecks = dchecks_fut.get();
-		next_echecks = echecks_fut.get();
+		dchecks = dchecks_fut.get();
+		echecks = echecks_fut.get();
 		if (tptr->leaf) {
 			while (dchecks.size()) {
 				const auto far = checks_far(dchecks, false);
@@ -547,7 +548,7 @@ int tree::kick_fmm(int stack_cnt, std::vector<check_item> &&dchecks, std::vector
 					}
 				}
 				dchecks_fut = get_next_checklist(std::move(next_dchecks));
-				next_dchecks = dchecks_fut.get();
+				dchecks = dchecks_fut.get();
 			}
 			auto x = std::make_shared<std::vector<part_pos>>();
 			for (auto i = tptr->parts.begin(); i != tptr->parts.end(); i++) {
@@ -562,9 +563,9 @@ int tree::kick_fmm(int stack_cnt, std::vector<check_item> &&dchecks, std::vector
 				(*f)[i].phi = this_f.phi;
 				(*f)[i].g = this_f.g;
 			}
-			gravity_queue_add_work(tptr->work_id, f, x, std::move(PP_list), std::move(PC_list), []() {
-
-			});
+//			gravity_queue_add_work(tptr->work_id, f, x, std::move(PP_list), std::move(PC_list), []() {
+//
+//			});
 
 		} else {
 			auto futl = tptr->left_child.kick_fmm(stack_cnt, true, dchecks, echecks, L);

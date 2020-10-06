@@ -30,12 +30,13 @@ void solve_gravity(tree_client root, double theta, int min_rung, bool stats) {
 	root_info = root.get_check_info();
 	root_check.opened = false;
 	root_check.info = &root_info;
+	root_check.info->node = root;
 	std::vector<check_item> echecklist(1, root_check);
 	std::vector<check_item> dchecklist(1, root_check);
 	expansion_src L;
 	L.l = 0.0;
 	L.x[0] = L.x[1] = L.x[2] = 0.5;
-//	root.kick_fmm(0, false, std::move(dchecklist), std::move(echecklist), std::move(L)).get();
+	root.kick_fmm(0, false, std::move(dchecklist), std::move(echecklist), std::move(L)).get();
 	fmm_time += timer();
 
 }
@@ -56,10 +57,10 @@ int hpx_main(int argc, char *argv[]) {
 	root.grow(0, false, bucket(), true).get();
 	printf("Balancing\n");
 	auto tstat = root.load_balance(0, false, 0, 1).get();
-	printf( "tree_stats %li %li %li\n", tstat.nmig, tstat.nnode, tstat.nleaf);
+	printf("tree_stats %li %li %li\n", tstat.nmig, tstat.nnode, tstat.nleaf);
 	printf("Creating ewald nodes\n");
 	root.grow(0, false, bucket()).get();
-	printf( "tree_stats %li %li %li\n", tstat.nmig, tstat.nnode, tstat.nleaf);
+	printf("tree_stats %li %li %li\n", tstat.nmig, tstat.nnode, tstat.nleaf);
 	printf("Building tree directory\n");
 	hpx::async<tree::build_tree_dir_action>(root_id, root).get();
 	auto ts = timer();
@@ -83,7 +84,7 @@ int hpx_main(int argc, char *argv[]) {
 	printf("%li loaded\n", ntotal);
 	printf("load balancing\n");
 	tstat = root.load_balance(0, false, 0, ntotal).get();
-	printf( "tree_stats %li %li %li\n", tstat.nmig, tstat.nnode, tstat.nleaf);
+	printf("tree_stats %li %li %li\n", tstat.nmig, tstat.nnode, tstat.nleaf);
 	printf("Data loaded and distributed in %e seconds\n", timer() - ts);
 
 	solve_gravity(root, 0.5, 0, false);

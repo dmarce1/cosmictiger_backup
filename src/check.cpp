@@ -50,28 +50,32 @@ hpx::future<std::vector<check_item>> get_next_checklist(std::vector<check_item> 
 			old.pop_back();
 		} else {
 			const auto id = old[i].info->node;
+			assert(old[i].info->node != tree_client());
 			const int index = gen_index(id);
 			std::lock_guard<mutex_type> lock(cache_mutex[index]);
 			if (cache[index].find(id) == cache[index].end()) {
+		//		printf( "---- %i\n", id.get_rank());
 				get_list[id.get_rank()].push_back(id);
 				cache[index][id].ready = false;
 			} else {
 				const auto &entry = cache[index][id];
 				if (entry.ready) {
+					printf( "???\n");
 					next.push_back(entry.checks.first);
 					next.push_back(entry.checks.second);
 				} else {
+					printf( "!!!\n");
 					wait_list.push_back(id);
 				}
 			}
 			i++;
 		}
 	}
-
 	if (get_list.size() || wait_list.size()) {
 		return hpx::async([](decltype(old) old, decltype(next) next, decltype(get_list) get_list, decltype(wait_list) wait_list) {
 			std::vector < hpx::future<std::vector<check_pair>> > futs;
 			for (auto &get : get_list) {
+				printf( "futspushback %i\n", get.first);
 				futs.push_back(hpx::async<get_check_pair_remote_action>(hpx_localities()[get.first], get.second));
 			}
 
