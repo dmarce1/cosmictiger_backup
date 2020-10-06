@@ -10,6 +10,7 @@
 
 #define MAX_STACK 9
 
+
 static std::atomic<int> thread_cnt(0);
 static const int max_threads = 4 * std::thread::hardware_concurrency();
 
@@ -200,4 +201,10 @@ int tree_client::find_home_child(int stack_cnt, bucket &&b) const {
 std::vector<part_pos> tree_client::get_positions() const {
 	assert(hpx::get_colocation_id(id).get() == hpx::find_here());
 	return reinterpret_cast<tree*>(ptr)->get_positions();
+}
+
+
+check_info tree_client::get_check_info() const {
+	assert(hpx::get_colocation_id(id).get() == hpx::find_here());
+	return reinterpret_cast<tree*>(ptr)->get_check_info();
 }

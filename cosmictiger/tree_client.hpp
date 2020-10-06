@@ -14,6 +14,8 @@
 class tree;
 class check_item;
 class multipole_return;
+class check_info;
+
 using check_pair = std::pair<check_item,check_item>;
 
 class tree_client {
@@ -61,6 +63,7 @@ public:
 	hpx::future<std::uint64_t> prune(int, bool) const;
 	hpx::future<int> verify(int, bool) const;
 	std::vector<part_pos> get_positions() const;
+	check_info get_check_info() const;
 	hpx::future<int> kick_fmm(int stack_cnt, bool, std::vector<check_item> dchecks, std::vector<check_item> echecks, expansion_src L);
 	bool local() const {
 		return hpx::get_colocation_id(id).get() == hpx::find_here();

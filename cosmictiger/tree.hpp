@@ -65,6 +65,7 @@ public:
 	int find_home_parent(int, bucket);
 	int find_home_child(int, bucket);
 	check_pair get_child_checks() const;
+	check_info get_check_info() const;
 	std::vector<part_pos> get_positions() const;
 	bucket get_parts();
 	std::uint64_t get_ptr();
@@ -88,6 +89,7 @@ public:
 	/**/HPX_DEFINE_COMPONENT_ACTION(tree,prune);
 	/**/HPX_DEFINE_COMPONENT_ACTION(tree,verify);
 	/**/HPX_DEFINE_COMPONENT_DIRECT_ACTION(tree,get_child_checks);
+	/**/HPX_DEFINE_COMPONENT_DIRECT_ACTION(tree,get_check_info);
 	/**/HPX_DEFINE_COMPONENT_DIRECT_ACTION(tree,get_ptr);
 	/**/HPX_DEFINE_COMPONENT_DIRECT_ACTION(tree,get_parts);
 	/**/HPX_DEFINE_COMPONENT_DIRECT_ACTION(tree,get_positions);

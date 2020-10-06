@@ -9,6 +9,7 @@
 #include <ctime>
 
 double multipole_time = 0.0;
+double fmm_time = 0.0;
 
 void set_params(double theta, int min_rung, bool stats) {
 	fmm_params params;
@@ -23,6 +24,20 @@ void solve_gravity(tree_client root, double theta, int min_rung, bool stats) {
 	multipole_time -= timer();
 	root.compute_multipoles(0, false, -1).get();
 	multipole_time += timer();
+	fmm_time -= timer();
+	check_item root_check;
+	check_info root_info;
+	root_info = root.get_check_info();
+	root_check.opened = false;
+	root_check.info = &root_info;
+	std::vector<check_item> echecklist(1, root_check);
+	std::vector<check_item> dchecklist(1, root_check);
+	expansion_src L;
+	L.l = 0.0;
+	L.x[0] = L.x[1] = L.x[2] = 0.5;
+	root.kick_fmm(0, false, std::move(dchecklist), std::move(echecklist), std::move(L)).get();
+	fmm_time += timer();
+
 }
 
 int hpx_main(int argc, char *argv[]) {
@@ -56,7 +71,7 @@ int hpx_main(int argc, char *argv[]) {
 			printf("%s\n", tree_verification_error(rc).c_str());
 		}
 		ndistrib = fileio_insert_parts(chunk_size);
-		printf( "growing tree\n");
+		printf("growing tree\n");
 		ntotal = root.grow(0, false, bucket()).get();
 		printf("%li distributed\n", ntotal);
 		chunk_size = std::min(2 * chunk_size, std::uint64_t(32 * 1024 * 1024));

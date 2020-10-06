@@ -25,6 +25,7 @@ using load_balance_type = tree::load_balance_action;
 using prune_type = tree::prune_action;
 using verify_type = tree::verify_action;
 using get_child_checks_type = tree::get_child_checks_action;
+using get_check_info_type = tree::get_check_info_action;
 using get_ptr_type = tree::get_ptr_action;
 using get_parts_type = tree::get_parts_action;
 using get_positions_type = tree::get_positions_action;
@@ -41,6 +42,7 @@ HPX_REGISTER_ACTION(load_balance_type);
 HPX_REGISTER_ACTION(prune_type);
 HPX_REGISTER_ACTION(verify_type);
 HPX_REGISTER_ACTION(get_child_checks_type);
+HPX_REGISTER_ACTION(get_check_info_type);
 HPX_REGISTER_ACTION(get_ptr_type);
 HPX_REGISTER_ACTION(get_parts_type);
 HPX_REGISTER_ACTION(get_positions_type);
@@ -69,20 +71,18 @@ int tree_ewald_min_level(double theta, double h) {
 		double dx = 0.25 * N - 1.0;
 		double a;
 		if (lev % NDIM == 0) {
-			a = std::sqrt(3);
+			a = std::sqrt(3) / 2.0;
 		} else if (lev % NDIM == 1) {
-			a = 1.5;
+			a = 0.75;
 		} else {
-			a = std::sqrt(1.5);
+			a = std::sqrt(1.5) / 2.0;
 		}
 		double r = 2 * (a + h) / theta;
-		//	printf( "%e %e\n", dx, r );
 		if (dx > r) {
 			break;
 		}
 		lev++;
 	}
-	return 0;
 	return lev;
 }
 
@@ -316,7 +316,6 @@ multipole_return tree::compute_multipoles(int stack_cnt, std::uint64_t work_id) 
 	rc.info.leaf = tptr->leaf;
 	rc.nactive = nactive;
 	rc.prange = prange;
-	printf( "%i %e %e\n",tptr->level, tptr->multi.r, M());
 	return rc;
 }
 
@@ -388,6 +387,14 @@ std::vector<part_pos> tree::get_positions() const {
 	return std::move(pos);
 }
 
+check_info tree::get_check_info() const {
+	check_info info;
+	info.leaf = tptr->leaf;
+	info.multi = &tptr->multi;
+	return info;
+
+}
+
 std::uint64_t tree::get_ptr() {
 	return reinterpret_cast<std::uint64_t>(this);
 }
@@ -419,7 +426,7 @@ std::uint64_t tree::grow(int stack_cnt, bucket &&parts) {
 		const double xmid = 0.5 * (tptr->box.max[dim] + tptr->box.min[dim]);
 		auto i = parts_left.begin();
 		while (i != parts_left.end()) {
-	//		printf("%li %e %e\n", i->x[dim], double(i->x[dim]), xmid);
+			//		printf("%li %e %e\n", i->x[dim], double(i->x[dim]), xmid);
 			if (double(i->x[dim]) >= xmid) {
 				parts_right.insert(*i);
 				i = parts_left.remove(i);
@@ -486,9 +493,10 @@ int tree::kick_fmm(int stack_cnt, std::vector<check_item> &&dchecks, std::vector
 	std::vector<multi_src*> PC_list;
 	std::vector<multi_src*> CC_list;
 	std::vector<multi_src*> ewald_list;
+	const auto xcom = pos_to_double(tptr->multi.x);
 	if (tptr->nactive > 0) {
-		L.l = L.l << (pos_to_double(tptr->multi.x) - L.x);
-
+		L.l = L.l << (xcom - L.x);
+		L.x = xcom;
 		auto far = checks_far(dchecks, false);
 		for (int i = 0; i < dchecks.size(); i++) {
 			const auto &pos = dchecks[i].info->node;
@@ -546,7 +554,6 @@ int tree::kick_fmm(int stack_cnt, std::vector<check_item> &&dchecks, std::vector
 					x->push_back(i->x);
 				}
 			}
-			const auto xcom = pos_to_double(tptr->multi.x);
 			auto f = std::make_shared < std::vector < _4force >> (x->size());
 			for (auto i = 0; i != x->size(); i++) {
 				_4force this_f;
