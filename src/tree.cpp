@@ -495,7 +495,7 @@ int tree::kick_fmm(int stack_cnt, std::vector<check_item> &&dchecks, std::vector
 	std::vector<multi_src*> CC_list;
 	std::vector<multi_src*> ewald_list;
 	const auto xcom = pos_to_double(tptr->multi.x);
-	printf( "kick_fmm %li %li\n", dchecks.size(), echecks.size());
+//	printf( "kick_fmm %li %li\n", dchecks.size(), echecks.size());
 	if (tptr->nactive > 0) {
 		L.l = L.l << (xcom - L.x);
 		L.x = xcom;
@@ -533,6 +533,7 @@ int tree::kick_fmm(int stack_cnt, std::vector<check_item> &&dchecks, std::vector
 		echecks = echecks_fut.get();
 		if (tptr->leaf) {
 			while (dchecks.size()) {
+				next_dchecks.resize(0);
 				const auto far = checks_far(dchecks, false);
 				for (int i = 0; i < dchecks.size(); i++) {
 					const auto &pos = dchecks[i].info->node;

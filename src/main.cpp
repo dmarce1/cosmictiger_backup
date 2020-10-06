@@ -89,6 +89,7 @@ int hpx_main(int argc, char *argv[]) {
 
 	solve_gravity(root, 0.5, 0, false);
 	printf("Multipoles took %e seconds\n", multipole_time);
+	printf("FMM took %e seconds\n",fmm_time);
 	printf("Destroying tree\n");
 
 //	int step = 0;
