@@ -22,6 +22,7 @@ void set_params(double theta, int min_rung, bool stats) {
 void solve_gravity(tree_client root, double theta, int min_rung, bool stats) {
 	set_params(theta, min_rung, stats);
 	multipole_time -= timer();
+	printf( "multipoles\n");
 	root.compute_multipoles(0, false, -1).get();
 	multipole_time += timer();
 	fmm_time -= timer();
@@ -36,6 +37,7 @@ void solve_gravity(tree_client root, double theta, int min_rung, bool stats) {
 	expansion_src L;
 	L.l = 0.0;
 	L.x[0] = L.x[1] = L.x[2] = 0.5;
+	printf( "fmm\n");
 	root.kick_fmm(0, false, std::move(dchecklist), std::move(echecklist), std::move(L)).get();
 	fmm_time += timer();
 

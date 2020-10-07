@@ -68,14 +68,14 @@ int tree_ewald_min_level(double theta, double h) {
 	int lev = 12;
 	while (1) {
 		int N = 1 << (lev / NDIM);
-		double dx = 0.25 * N - 1.0;
+		double dx = 0.25 * N;
 		double a;
 		if (lev % NDIM == 0) {
-			a = std::sqrt(3) / 2.0;
+			a = std::sqrt(3);
 		} else if (lev % NDIM == 1) {
-			a = 0.75;
+			a = 1.5;
 		} else {
-			a = std::sqrt(1.5) / 2.0;
+			a = std::sqrt(1.5);
 		}
 		double r = 2 * (a + h * N) / theta;
 		if (dx > r) {
@@ -370,6 +370,7 @@ int tree::destroy(int stack_cnt) {
 }
 
 check_pair tree::get_child_checks() const {
+	assert(!tptr->leaf);
 	check_pair checks;
 	checks.first.info = &(tptr->child_info[0]);
 	checks.first.opened = false;
@@ -495,7 +496,7 @@ int tree::kick_fmm(int stack_cnt, std::vector<check_item> &&dchecks, std::vector
 	std::vector<multi_src*> CC_list;
 	std::vector<multi_src*> ewald_list;
 	const auto xcom = pos_to_double(tptr->multi.x);
-//	printf( "kick_fmm %li %li\n", dchecks.size(), echecks.size());
+	printf( "kick_fmm %li %li\n", dchecks.size(), echecks.size());
 	if (tptr->nactive > 0) {
 		L.l = L.l << (xcom - L.x);
 		L.x = xcom;
@@ -581,6 +582,7 @@ int tree::kick_fmm(int stack_cnt, std::vector<check_item> &&dchecks, std::vector
 
 tree_stats tree::load_balance(int stack_cnt, std::uint64_t index, std::uint64_t total) {
 	tree_stats stats;
+	assert( index < total );
 	if (!tptr->leaf) {
 		stats.nnode++;
 		auto futl = tptr->left_child.load_balance(stack_cnt, true, index, total);
@@ -600,12 +602,14 @@ tree_stats tree::load_balance(int stack_cnt, std::uint64_t index, std::uint64_t 
 			assert(ir < localities.size());
 			hpx::future<tree_client> newl;
 			hpx::future<tree_client> newr;
-			if (il != hpx::get_locality_id()) {
+			if (il != tptr->left_child.get_rank()) {
+//				printf( "%i %i %i %i %i\n", il,  tptr->left_child.get_rank(), index, localities.size(), total);
 				stats.nmig++;
 //				printf( "Migrating from %i to %i\n", hpx::get_locality_id(), il);
 				newl = tptr->left_child.migrate(localities[il]);
 			}
-			if (ir != hpx::get_locality_id()) {
+			if (ir != tptr->right_child.get_rank()) {
+//				printf( "%i %i\n", ir,  tptr->right_child.get_rank());
 				stats.nmig++;
 //				printf( "Migrating from %i to %i\n", hpx::get_locality_id(), ir);
 				newr = tptr->right_child.migrate(localities[ir]);

@@ -126,10 +126,18 @@ hpx::future<std::vector<check_item>> get_next_checklist(std::vector<check_item> 
 	}
 }
 
-void* check_allocate(std::size_t size) {
-	auto *ptr = malloc(size);
+void* check_allocate_info() {
+	auto *ptr = malloc(sizeof(check_info) + sizeof(multi_src));
+	auto *iptr = (check_info*) ptr;
+	auto *mptr = (multi_src*) ((void*) ptr + sizeof(check_info));
+	new (iptr) check_info();
+	new (mptr) multi_src();
 	std::lock_guard<mutex_type> lock(mtx);
 	return ptr;
+}
+
+multi_src* check_allocate_multi() {
+	return new multi_src();
 }
 
 void check_cleanup();

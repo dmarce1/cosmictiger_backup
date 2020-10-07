@@ -32,18 +32,19 @@ struct tree_mems {
 	}
 
 	tree_mems& operator=(const tree_mems &other) {
+		multi = other.multi;
 		parts.clear();
 		for (auto i = other.parts.cbegin(); i != other.parts.cend(); i++) {
 			parts.insert(*i);
 		}
-		work_id = other.work_id;
-		nactive = other.nactive;
-		multi = other.multi;
 		box = other.box;
 		child_info = other.child_info;
 		parent = other.parent;
 		child_cnt = other.child_cnt;
 		id = other.id;
+		nactive = other.nactive;
+		work_id = other.work_id;
+		nactive = other.nactive;
 		leaf = other.leaf;
 		level = other.level;
 		return *this;

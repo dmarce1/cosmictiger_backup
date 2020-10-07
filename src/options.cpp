@@ -46,6 +46,7 @@ bool options::process_options(int argc, char *argv[]) {
 		}
 	}
 	po::notify(vm);
+	input_file = std::string("../ics/4x4/ics");
 	const auto loc = hpx::find_all_localities();
 	const auto sz = loc.size();
 	std::vector<hpx::future<void>> futs;
