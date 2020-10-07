@@ -71,6 +71,16 @@ struct tree_stats {
 
 void tree_set_fmm_params(fmm_params);
 
+struct drift_in_return {
+	bucket parts;
+	std::uint64_t cnt;
+	template<class A>
+	void serialize(A&& arc, unsigned) {
+		arc & parts;
+		arc & cnt;
+	}
+};
+
 class tree: public hpx::components::managed_component_base<tree> {
 	tree_mems *tptr;
 public:
@@ -83,6 +93,8 @@ public:
 	void create_children();
 	int destroy(int);
 	std::uint64_t drift(int, int, tree_client, tree_client, float dt);
+	drift_in_return drift_in(int, float dt);
+	int drift_out(int, bucket&&, std::uint64_t);
 	int find_home_parent(int, bucket);
 	int find_home_child(int, bucket);
 	check_pair get_child_checks() const;
@@ -101,6 +113,8 @@ public:
 	std::vector<bool> checks_far(const std::vector<check_item>&, bool ewald);
 	/**/HPX_DEFINE_COMPONENT_ACTION(tree,build_tree_dir);
 	/**/HPX_DEFINE_COMPONENT_ACTION(tree,destroy);
+	/**/HPX_DEFINE_COMPONENT_ACTION(tree,drift_in);
+	/**/HPX_DEFINE_COMPONENT_ACTION(tree,drift_out);
 	/**/HPX_DEFINE_COMPONENT_ACTION(tree,drift);
 	/**/HPX_DEFINE_COMPONENT_ACTION(tree,find_home_parent);
 	/**/HPX_DEFINE_COMPONENT_ACTION(tree,find_home_child);

@@ -10,7 +10,6 @@
 
 #define MAX_STACK 9
 
-
 static std::atomic<int> thread_cnt(0);
 static const int max_threads = 4 * std::thread::hardware_concurrency();
 
@@ -79,7 +78,7 @@ hpx::future<std::uint64_t> tree_client::grow(int stack_cnt, bool left, bucket &&
 		return hpx::async<tree::grow_action>(id, 0, std::move(parts), first_pass);
 	} else {
 		if (left || stack_cnt >= MAX_STACK) {
-			return thread_handler<std::uint64_t>([this,first_pass](int stack_cnt, bucket &&parts) {
+			return thread_handler<std::uint64_t>([this, first_pass](int stack_cnt, bucket &&parts) {
 				return reinterpret_cast<tree*>(ptr)->grow(stack_cnt, std::move(parts), first_pass);
 			}, stack_cnt, std::move(parts));
 		} else {
@@ -90,7 +89,7 @@ hpx::future<std::uint64_t> tree_client::grow(int stack_cnt, bool left, bucket &&
 
 hpx::future<multipole_return> tree_client::compute_multipoles(int stack_cnt, bool left, std::uint64_t work_id, std::uint64_t index) const {
 	if (hpx::get_colocation_id(id).get() != hpx::find_here()) {
-		return hpx::async<tree::compute_multipoles_action>(id, 0, work_id,index);
+		return hpx::async<tree::compute_multipoles_action>(id, 0, work_id, index);
 	} else {
 		if (left || stack_cnt >= MAX_STACK) {
 			return thread_handler<multipole_return>([this, work_id, index](int stack_cnt) {
@@ -164,16 +163,43 @@ hpx::future<std::uint64_t> tree_client::drift(int stack_cnt, bool left, int step
 	}
 
 }
+hpx::future<drift_in_return> tree_client::drift_in(int stack_cnt, bool left, float dt) const {
+	if (hpx::get_colocation_id(id).get() != hpx::find_here()) {
+		return hpx::async<tree::drift_in_action>(id, 0, dt);
+	} else {
+		if (left || stack_cnt >= MAX_STACK) {
+			return thread_handler<drift_in_return>([this](int stack_cnt, float dt) {
+				return reinterpret_cast<tree*>(ptr)->drift_in(stack_cnt, std::move(dt));
+			}, stack_cnt, std::move(dt));
+		} else {
+			return hpx::make_ready_future(reinterpret_cast<tree*>(ptr)->drift_in(stack_cnt, dt));
+		}
+	}
+
+}
+hpx::future<int> tree_client::drift_out(int stack_cnt, bool left, bucket &&parts, std::uint64_t index) const {
+	if (hpx::get_colocation_id(id).get() != hpx::find_here()) {
+		return hpx::async<tree::drift_out_action>(id, 0, std::move(parts), index);
+	} else {
+		if (left || stack_cnt >= MAX_STACK) {
+			return thread_handler<int>([this](int stack_cnt,  bucket &&parts, std::uint64_t index) {
+				return reinterpret_cast<tree*>(ptr)->drift_out(stack_cnt, std::move(parts), std::move(index));
+			}, stack_cnt, std::move(parts), std::move(index));
+		} else {
+			return hpx::make_ready_future(reinterpret_cast<tree*>(ptr)->drift_out(stack_cnt, std::move(parts), index));
+		}
+	}
+
+}
 
 hpx::future<int> tree_client::kick_fmm(int stack_cnt, bool left, std::vector<check_item> dchecks, std::vector<check_item> echecks, expansion_src L) {
 	if (hpx::get_colocation_id(id).get() != hpx::find_here()) {
 		return hpx::async<tree::kick_fmm_action>(id, 0, std::move(dchecks), std::move(echecks), std::move(L));
 	} else {
 		if (left || stack_cnt >= MAX_STACK) {
-			return thread_handler<int>(
-					[this](int stack_cnt, std::vector<check_item> &&dchecks, std::vector<check_item> &&echecks, expansion_src &&L) {
-						return reinterpret_cast<tree*>(ptr)->kick_fmm(stack_cnt, std::move(dchecks), std::move(echecks), std::move(L));
-					}, stack_cnt, std::move(dchecks), std::move(echecks), std::move(L));
+			return thread_handler<int>([this](int stack_cnt, std::vector<check_item> &&dchecks, std::vector<check_item> &&echecks, expansion_src &&L) {
+				return reinterpret_cast<tree*>(ptr)->kick_fmm(stack_cnt, std::move(dchecks), std::move(echecks), std::move(L));
+			}, stack_cnt, std::move(dchecks), std::move(echecks), std::move(L));
 		} else {
 			return hpx::make_ready_future(reinterpret_cast<tree*>(ptr)->kick_fmm(stack_cnt, std::move(dchecks), std::move(echecks), std::move(L)));
 		}
@@ -202,7 +228,6 @@ std::vector<part_pos> tree_client::get_positions() const {
 	assert(hpx::get_colocation_id(id).get() == hpx::find_here());
 	return reinterpret_cast<tree*>(ptr)->get_positions();
 }
-
 
 check_info tree_client::get_check_info() const {
 	assert(hpx::get_colocation_id(id).get() == hpx::find_here());

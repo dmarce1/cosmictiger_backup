@@ -95,25 +95,20 @@ int hpx_main(int argc, char *argv[]) {
 	printf("Multipoles took %e seconds\n", multipole_time);
 	printf("FMM took %e seconds\n", fmm_time);
 
-	for (int step = 0; step < 1000; step++) {
-		auto dtime = timer();
-		ts = timer();
-		std::uint64_t cnt = root.drift(0, false, step, tree_client(), root, 0.009).get();
-		printf( "D: %e\n", timer() - ts);
-		ts = timer();
-		printf("Pruning\n");
-		root.prune(0, false).get();
-		printf( "P: %e\n", timer() - ts);
-		ts = timer();
-		printf("Balancing %li particles\n", opts.problem_size);
-		tstat = root.load_balance(0, false, 0, opts.problem_size).get();
-		printf( "B: %e\n", timer() - ts);
-		ts = timer();
-		printf("tree_stats %li %li %li\n", tstat.nmig, tstat.nnode, tstat.nleaf);
-		double pct_drift = double(cnt) / opts.problem_size * 100;
-		dtime = timer() - dtime;
-		printf("Drift takes %e seconds %f%% drifted\n", dtime, pct_drift);
+	int rc = root.verify(0, false).get();
+	if (rc) {
+		printf("%s\n", tree_verification_error(rc).c_str());
 	}
+
+//
+//	double btime = 0.0;
+	for (int step = 0; step < 10; step++) {
+		auto dtime = timer();
+		auto dr = root.drift_in(0, false, 0.009).get();
+		root.drift_out(0, false, std::move(dr.parts), 0);
+		printf("Drift takes %e seconds\n", timer() - dtime);
+	}
+//	printf("%e\n", btime);
 	printf("Destroying tree\n");
 	root.destroy(0).get();
 	printf("exiting\n");

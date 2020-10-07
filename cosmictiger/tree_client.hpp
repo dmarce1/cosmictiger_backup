@@ -16,6 +16,7 @@ class check_item;
 class multipole_return;
 class check_info;
 class tree_stats;
+class drift_in_return;
 
 using check_pair = std::pair<check_item,check_item>;
 
@@ -53,6 +54,9 @@ public:
 	}
 	hpx::future<int> destroy(int) const;
 	hpx::future<std::uint64_t> drift(int, bool, int, tree_client, tree_client, float dt) const;
+	hpx::future<drift_in_return> drift_in(int, bool, float dt) const;
+	hpx::future<int> drift_out(int, bool, bucket&&, std::uint64_t) const;
+
 	int find_home_parent(int, bucket&&) const;
 	int find_home_child(int, bucket&&) const;
 	check_pair get_child_checks() const;

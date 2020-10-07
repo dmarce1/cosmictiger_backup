@@ -17,6 +17,8 @@ using build_tree_dir_type = tree::build_tree_dir_action;
 using compute_multipoles_type = tree::compute_multipoles_action;
 using destroy_type = tree::destroy_action;
 using drift_type = tree::drift_action;
+using drift_in_type = tree::drift_in_action;
+using drift_out_type = tree::drift_out_action;
 using find_home_parent_type = tree::find_home_parent_action;
 using find_home_child_type = tree::find_home_child_action;
 using grow_type = tree::grow_action;
@@ -34,6 +36,8 @@ HPX_REGISTER_ACTION(build_tree_dir_type);
 HPX_REGISTER_ACTION(compute_multipoles_type);
 HPX_REGISTER_ACTION(destroy_type);
 HPX_REGISTER_ACTION(drift_type);
+HPX_REGISTER_ACTION(drift_in_type);
+HPX_REGISTER_ACTION(drift_out_type);
 HPX_REGISTER_ACTION(find_home_parent_type);
 HPX_REGISTER_ACTION(find_home_child_type);
 HPX_REGISTER_ACTION(grow_type);
@@ -457,6 +461,20 @@ std::uint64_t tree::grow(int stack_cnt, bucket &&parts, bool first_pass) {
 }
 
 bucket tree::get_parts() {
+	if (!tptr->leaf) {
+		auto futl = tptr->children[0].get_parts();
+		auto futr = tptr->children[1].get_parts();
+		auto L = futl.get();
+		auto R = futr.get();
+		while (L.size()) {
+			tptr->parts.insert(L.front());
+			L.remove(L.begin());
+		}
+		while (R.size()) {
+			tptr->parts.insert(R.front());
+			R.remove(R.begin());
+		}
+	}
 	return std::move(tptr->parts);
 }
 
@@ -712,6 +730,106 @@ int tree::verify(int stack_cnt) const {
 	return rc;
 }
 
+drift_in_return tree::drift_in(int stack_cnt, float dt) {
+	drift_in_return rc;
+	bucket &exit_parts = rc.parts;
+	if (tptr->leaf) {
+		auto i = tptr->parts.begin();
+		while (i != tptr->parts.end()) {
+			auto x = pos_to_double(i->x);
+			const auto v = i->v * 400.0;
+			x += v * dt;
+			i->x = double_to_pos(x);
+			i->step++;
+			if (!in_range(pos_to_double(i->x), tptr->box)) {
+				exit_parts.insert(*i);
+				i = tptr->parts.remove(i);
+			} else {
+				i++;
+			}
+		}
+	}
+	if (!tptr->leaf) {
+		auto futl = tptr->children[0].drift_in(stack_cnt, true, dt);
+		auto futr = tptr->children[1].drift_in(stack_cnt, false, dt);
+		std::array<drift_in_return, NCHILD> crc;
+		crc[0] = futl.get();
+		crc[1] = futr.get();
+		for (int ci = 0; ci < NCHILD; ci++) {
+			auto &parts = crc[ci].parts;
+			while (parts.size()) {
+				const auto x = pos_to_double(parts.front().x);
+				if (in_range(x, tptr->box)) {
+					tptr->parts.insert(parts.front());
+				} else {
+					exit_parts.insert(parts.front());
+				}
+				parts.remove(parts.begin());
+			}
+		}
+		rc.cnt = tptr->parts.size() + crc[0].cnt + crc[1].cnt;
+		tptr->child_cnt[0] = crc[0].cnt;
+		tptr->child_cnt[1] = crc[1].cnt;
+	} else {
+		rc.cnt = tptr->parts.size();
+		tptr->child_cnt[0] = 0;
+		tptr->child_cnt[1] = 0;
+	}
+	return rc;
+}
+
+int tree::drift_out(int stack_cnt, bucket &&parts, std::uint64_t index) {
+	const auto dist_level = bits_to_level(hpx_localities().size());
+	const int min_level = std::max(dist_level, tree_ewald_min_level(fmm.theta, opts.h));
+	if (tptr->leaf) {
+		if (tptr->level < min_level || parts.size() + tptr->parts.size() > opts.bucket_size) {
+			create_children();
+		} else {
+			if (tptr->parts.size() == 0) {
+				tptr->parts = std::move(parts);
+			} else {
+				for (auto i = parts.begin(); i != parts.end(); i++) {
+					tptr->parts.insert(*i);
+				}
+			}
+		}
+	} else {
+		if (tptr->parts.size() + tptr->child_cnt[0] + tptr->child_cnt[1] <= opts.bucket_size) {
+			tptr->parts = std::move(get_parts());
+			tptr->children[0] = tree_client();
+			tptr->children[1] = tree_client();
+			tptr->leaf = true;
+		}
+	}
+	if (!tptr->leaf) {
+		while (tptr->parts.size()) {
+			parts.insert(tptr->parts.front());
+			tptr->parts.remove(tptr->parts.begin());
+		}
+		bucket parts_left = std::move(parts);
+		bucket parts_right;
+		const int dim = range_max_dim(tptr->box);
+		const double xmid = 0.5 * (tptr->box.max[dim] + tptr->box.min[dim]);
+		auto i = parts_left.begin();
+		while (i != parts_left.end()) {
+			if (double(i->x[dim]) >= xmid) {
+				parts_right.insert(*i);
+				i = parts_left.remove(i);
+			} else {
+				i++;
+			}
+		}
+		tptr->child_cnt[0] += parts_left.size();
+		tptr->child_cnt[1] += parts_right.size();
+		local_load_balance(index, opts.problem_size);
+		auto futl = tptr->children[0].drift_out(stack_cnt, true, std::move(parts_left), index);
+		auto futr = tptr->children[1].drift_out(stack_cnt, false, std::move(parts_right), index + tptr->child_cnt[0]);
+		futl.get();
+		futr.get();
+	}
+	return 0;
+}
+
 std::uint64_t tree::drift(int stack_cnt, int step, tree_client parent, tree_client self, float dt) {
 	const int min_level = bits_to_level(hpx_localities().size());
 	tptr->parent = parent;
@@ -723,7 +841,7 @@ std::uint64_t tree::drift(int stack_cnt, int step, tree_client parent, tree_clie
 		while (i != tptr->parts.end()) {
 			if (step % 2 == i->step) {
 				auto x = pos_to_double(i->x);
-				const auto v = i->v*400.0;
+				const auto v = i->v * 400.0;
 				x += v * dt;
 				i->x = double_to_pos(x);
 				i->step++;
