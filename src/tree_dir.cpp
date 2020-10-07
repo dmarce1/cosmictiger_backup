@@ -27,7 +27,7 @@ tree_dir& tree_dir::merge(const tree_dir &other) {
 	for (auto i : other.nodes) {
 		nodes[i.first] = i.second;
 	}
-	for( auto i : nodes) {
+	for (auto i : nodes) {
 		assert(i.second != tree_client());
 	}
 	return *this;
@@ -41,16 +41,7 @@ int tree_dir::index(int x, int y, int z) const {
 	return x * ny * nz + y * nz + z;
 }
 
-void tree_dir::retire_futures() {
-//	printf( "Retiring futures\n");
-	for (int i = 0; i < futures.size(); i++) {
-		futures[i].get();
-	}
-	futures.clear();
-//	printf( "Done futures\n");
-}
-
-void tree_dir::find_home(int stack_cnt, bucket &&parts) {
+hpx::future<void> tree_dir::find_home(bucket &&parts) {
 	using map_type = std::unordered_map<int, bucket>;
 	map_type buckets;
 	while (parts.size()) {
@@ -63,17 +54,17 @@ void tree_dir::find_home(int stack_cnt, bucket &&parts) {
 	}
 	std::vector<hpx::future<int>> futs;
 	for (auto &i : buckets) {
-		auto func = [this, stack_cnt](int id, bucket &&parts) {
+		auto func = [this](int id, bucket &&parts) {
 			assert((nodes[id] != tree_client()));
-			nodes[id].find_home_child(stack_cnt + 1, std::move(parts));
+			nodes[id].place_parts(std::move(parts));
 			return 0;
 		};
 		futs.push_back(hpx::async(std::move(func), i.first, std::move(i.second)));
 	}
 	std::lock_guard<mutex_type> lock(mtx);
-	futures.push_back(hpx::when_all(futs.begin(), futs.end()).then([](hpx::future<std::vector<hpx::future<int>>> fut) {
+	return hpx::when_all(futs.begin(), futs.end()).then([](hpx::future<std::vector<hpx::future<int>>> fut) {
 		auto futs = fut.get();
 		hpx::wait_all(futs.begin(), futs.end());
-	}));
+	});
 }
 

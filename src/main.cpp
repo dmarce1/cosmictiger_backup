@@ -105,8 +105,14 @@ int hpx_main(int argc, char *argv[]) {
 	for (int step = 0; step < 10; step++) {
 		auto dtime = timer();
 		auto dr = root.drift_in(0, false, 0.009).get();
+//		int cnt = 0;
+		auto cnt = root.count_children().get();
 		root.drift_out(0, false, std::move(dr.parts), 0);
-		printf("Drift takes %e seconds\n", timer() - dtime);
+//		int rc = root.verify(0, false).get();
+		if (rc) {
+//			printf("%s\n", tree_verification_error(rc).c_str());
+		}
+		printf("Drift takes %e seconds %i\n", timer() - dtime, cnt);
 	}
 //	printf("%e\n", btime);
 	printf("Destroying tree\n");

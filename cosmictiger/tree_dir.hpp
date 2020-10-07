@@ -22,7 +22,6 @@ class tree_dir {
 	int level;
 	int index(int x, int y, int z) const;
 	int index(const vect<double> &x) const;
-	std::vector<hpx::future<void>> futures;
 	mutex_type mtx;
 public:
 	tree_dir();
@@ -58,10 +57,7 @@ public:
 
 	tree_dir& merge(const tree_dir &other);
 
-	void find_home(int, bucket &&p);
-
-	void retire_futures();
-
+	hpx::future<void> find_home(bucket &&p);
 	HPX_SERIALIZATION_SPLIT_MEMBER();
 	template<class A>
 	void load(A &&arc, unsigned);

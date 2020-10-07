@@ -17,7 +17,6 @@ struct tree_mems {
 	range box;
 	std::array<tree_client, NCHILD> children;
 	std::array<check_info, NCHILD> child_info;
-	tree_client parent;
 	std::array<std::uint64_t, NCHILD> child_cnt;
 	box_id_type id;
 	std::uint64_t nactive;
@@ -38,7 +37,6 @@ struct tree_mems {
 		children = other.children;
 		box = other.box;
 		child_info = other.child_info;
-		parent = other.parent;
 		child_cnt = other.child_cnt;
 		id = other.id;
 		nactive = other.nactive;
@@ -58,7 +56,6 @@ struct tree_mems {
 		arc & parts;
 		arc & box;
 		arc & child_info;
-		arc & parent;
 		arc & child_cnt;
 		arc & id;
 		arc & leaf;

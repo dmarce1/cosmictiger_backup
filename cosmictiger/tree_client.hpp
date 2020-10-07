@@ -53,19 +53,17 @@ public:
 		return hpx::get_locality_id_from_id(id);
 	}
 	hpx::future<int> destroy(int) const;
-	hpx::future<std::uint64_t> drift(int, bool, int, tree_client, tree_client, float dt) const;
 	hpx::future<drift_in_return> drift_in(int, bool, float dt) const;
 	hpx::future<int> drift_out(int, bool, bucket&&, std::uint64_t) const;
 
-	int find_home_parent(int, bucket&&) const;
-	int find_home_child(int, bucket&&) const;
+	int place_parts(bucket&&) const;
 	check_pair get_child_checks() const;
 	hpx::future<bucket> get_parts() const;
 	hpx::future<std::uint64_t> grow(int, bool, bucket&&, bool=false) const;
 	hpx::future<tree_client> migrate(hpx::id_type) const;
 	hpx::future<tree_stats> load_balance(int, bool left, std::uint64_t, std::uint64_t) const;
 	hpx::future<multipole_return> compute_multipoles(int, bool left, std::uint64_t work_id, std::uint64_t) const;
-	hpx::future<std::uint64_t> prune(int, bool) const;
+	hpx::future<std::uint64_t> count_children() const;
 	hpx::future<int> verify(int, bool) const;
 	std::vector<part_pos> get_positions() const;
 	check_info get_check_info() const;
