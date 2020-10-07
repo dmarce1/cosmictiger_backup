@@ -108,9 +108,9 @@ int hpx_main(int argc, char *argv[]) {
 //		int cnt = 0;
 		auto cnt = root.count_children().get();
 		root.drift_out(0, false, std::move(dr.parts), 0);
-//		int rc = root.verify(0, false).get();
+		int rc = root.verify(0, false).get();
 		if (rc) {
-//			printf("%s\n", tree_verification_error(rc).c_str());
+			printf("%s\n", tree_verification_error(rc).c_str());
 		}
 		printf("Drift takes %e seconds %i\n", timer() - dtime, cnt);
 	}

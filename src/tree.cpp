@@ -764,7 +764,7 @@ int tree::drift_out(int stack_cnt, bucket &&parts, std::uint64_t index) {
 			}
 		}
 	} else if (tptr->level > min_level) {
-		const auto sz = tptr->parts.size() + tptr->child_cnt[0] + tptr->child_cnt[1];
+		const auto sz = parts.size() + tptr->parts.size() + tptr->child_cnt[0] + tptr->child_cnt[1];
 		if (sz <= opts.bucket_size) {
 			for (auto i = parts.begin(); i != parts.end(); i++) {
 				tptr->parts.insert(*i);
