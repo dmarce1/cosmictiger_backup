@@ -15,6 +15,7 @@ struct tree_mems {
 	multi_src multi;
 	bucket parts;
 	range box;
+	std::array<tree_client, NCHILD> children;
 	std::array<check_info, NCHILD> child_info;
 	tree_client parent;
 	std::array<std::uint64_t, NCHILD> child_cnt;
@@ -24,11 +25,9 @@ struct tree_mems {
 	std::atomic<int> lock;
 	std::uint8_t leaf;
 	std::uint8_t level;
-	tree_client &left_child;
-	tree_client &right_child;
 
 	tree_mems() :
-			lock(0), left_child(child_info[0].node), right_child(child_info[1].node) {
+			lock(0) {
 	}
 
 	tree_mems& operator=(const tree_mems &other) {
@@ -37,6 +36,7 @@ struct tree_mems {
 		for (auto i = other.parts.cbegin(); i != other.parts.cend(); i++) {
 			parts.insert(*i);
 		}
+		children = other.children;
 		box = other.box;
 		child_info = other.child_info;
 		parent = other.parent;
@@ -52,6 +52,7 @@ struct tree_mems {
 
 	template<class A>
 	void serialize(A &&arc, unsigned) {
+		arc & children;
 		arc & work_id;
 		arc & nactive;
 		arc & multi;

@@ -1,5 +1,6 @@
 #include <cosmictiger/check.hpp>
 #include <cosmictiger/hpx.hpp>
+#include <cosmictiger/tree.hpp>
 
 #include <stack>
 #include <unordered_map>
@@ -11,26 +12,20 @@ struct cache_entry {
 	check_pair checks;
 };
 
-struct tree_client_hash {
-	std::size_t operator()(const tree_client &id) const {
-		return (id.get_ptr() >> 3) / CACHE_SIZE;
-	}
-};
-
-using map_type = std::unordered_map<tree_client, cache_entry, tree_client_hash>;
+using map_type = std::unordered_map<tree_ptr, cache_entry, tree_ptr_hash>;
 static map_type cache[CACHE_SIZE];
 static mutex_type cache_mutex[CACHE_SIZE];
 static std::stack<void*, std::vector<void*>> stack;
 static mutex_type mtx;
 
-int gen_index(const tree_client &id) {
-	return (id.get_ptr() >> 3) % CACHE_SIZE;
+int gen_index(const tree_ptr &id) {
+	return (id.ptr >> 3) % CACHE_SIZE;
 }
 
-std::vector<check_pair> get_check_pair_remote(const std::vector<tree_client> &ids) {
+std::vector<check_pair> get_check_pair_remote(const std::vector<tree_ptr> &ids) {
 	std::vector<check_pair> checks(ids.size());
 	for (int i = 0; i < ids.size(); i++) {
-		checks[i] = ids[i].get_child_checks();
+		checks[i] = reinterpret_cast<tree*>(ids[i].ptr)->get_child_checks();
 	}
 	return std::move(checks);
 }
@@ -39,8 +34,8 @@ HPX_PLAIN_ACTION (get_check_pair_remote);
 
 hpx::future<std::vector<check_item>> get_next_checklist(std::vector<check_item> &&old) {
 	std::vector<check_item> next;
-	std::unordered_map<int, std::vector<tree_client>> get_list;
-	std::vector<tree_client> wait_list;
+	std::unordered_map<int, std::vector<tree_ptr>> get_list;
+	std::vector<tree_ptr> wait_list;
 	int i = 0;
 	std::size_t size = 0;
 	while (i < old.size()) {
@@ -52,17 +47,16 @@ hpx::future<std::vector<check_item>> get_next_checklist(std::vector<check_item> 
 			old.pop_back();
 		} else {
 			const auto id = old[i].info->node;
-			if (id.get_rank() == hpx::get_locality_id()) {
-				auto checks = id.get_child_checks();
+			if (id.rank == hpx::get_locality_id()) {
+				auto checks = reinterpret_cast<tree*>(id.ptr)->get_child_checks();
 				next.push_back(checks.first);
 				next.push_back(checks.second);
 			} else {
-				assert(old[i].info->node != tree_client());
 				const int index = gen_index(id);
 				std::lock_guard<mutex_type> lock(cache_mutex[index]);
 				if (cache[index].find(id) == cache[index].end()) {
-					//		printf( "---- %i\n", id.get_rank());
-					get_list[id.get_rank()].push_back(id);
+					//		printf( "---- %i\n", id.rank);
+					get_list[id.rank].push_back(id);
 					cache[index][id].ready = false;
 				} else {
 					const auto &entry = cache[index][id];
@@ -126,18 +120,12 @@ hpx::future<std::vector<check_item>> get_next_checklist(std::vector<check_item> 
 	}
 }
 
-void* check_allocate_info() {
-	auto *ptr = malloc(sizeof(check_info) + sizeof(multi_src));
-	auto *iptr = (check_info*) ptr;
-	auto *mptr = (multi_src*) ((void*) ptr + sizeof(check_info));
-	new (iptr) check_info();
-	new (mptr) multi_src();
-	std::lock_guard<mutex_type> lock(mtx);
-	return ptr;
-}
 
-multi_src* check_allocate_multi() {
-	return new multi_src();
+void* check_allocate(std::size_t size) {
+	auto *ptr = malloc(size);
+	std::lock_guard<mutex_type> lock(mtx);
+	stack.push(ptr);
+	return ptr;
 }
 
 void check_cleanup();

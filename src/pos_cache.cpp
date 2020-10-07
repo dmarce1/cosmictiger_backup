@@ -11,11 +11,12 @@
 #define CACHE_READY 2
 
 struct cache_entry {
-	tree_client id;
+	tree_ptr id;
 	bool ready;
 	std::shared_ptr<std::vector<part_pos>> data_ptr;
 	cache_entry() {
-		id = tree_client();
+		id.rank = -1;
+		id.ptr = 0;
 		ready = false;
 		data_ptr = std::make_shared<std::vector<part_pos>>();
 	}
@@ -28,29 +29,29 @@ struct cache_line {
 
 static std::array<cache_line, CACHE_WIDTH> cache;
 
-static std::size_t gen_index(tree_client id) {
-	return (id.get_ptr() >> 3) % CACHE_WIDTH;
+static std::size_t gen_index(tree_ptr id) {
+	return (id.ptr >> 3) % CACHE_WIDTH;
 }
 
 struct request_type {
 	std::vector<int> order;
-	std::vector<tree_client> id;
+	std::vector<tree_ptr> id;
 };
 
-std::vector<std::vector<part_pos>> get_remote_positions(const std::vector<tree_client> ids);
+std::vector<std::vector<part_pos>> get_remote_positions(const std::vector<tree_ptr> ids);
 
 HPX_PLAIN_ACTION (get_remote_positions);
 
-std::vector<std::vector<part_pos>> get_remote_positions(const std::vector<tree_client> ids) {
+std::vector<std::vector<part_pos>> get_remote_positions(const std::vector<tree_ptr> ids) {
 	std::vector < std::vector < part_pos >> pos(ids.size());
 	for (int i = 0; i < ids.size(); i++) {
-		pos.push_back(ids[i].get_positions());
+		pos.push_back(reinterpret_cast<tree*>(ids[i].ptr)->get_positions());
 	}
 	return std::move(pos);
 
 }
 
-std::vector<std::shared_ptr<std::vector<part_pos>>> get_positions(const std::vector<tree_client> &ids) {
+std::vector<std::shared_ptr<std::vector<part_pos>>> get_positions(const std::vector<tree_ptr> &ids) {
 	std::vector < std::shared_ptr<std::vector<part_pos>> > res(ids.size());
 	std::vector < std::shared_ptr < cache_entry >> cache_entries(ids.size());
 	std::unordered_map<int, request_type> requests;
@@ -86,7 +87,7 @@ std::vector<std::shared_ptr<std::vector<part_pos>>> get_positions(const std::vec
 	}
 	for (int i = 0; i < ids.size(); i++) {
 		if (notfound[i]) {
-			const int rank = hpx::get_locality_id_from_id(ids[i]);
+			const int rank = ids[i].rank;
 			auto &entry = requests[rank];
 			entry.order.push_back(i);
 			entry.id.push_back(ids[i]);

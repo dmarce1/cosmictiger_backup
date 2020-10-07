@@ -31,7 +31,6 @@ void solve_gravity(tree_client root, double theta, int min_rung, bool stats) {
 	root_info = root.get_check_info();
 	root_check.opened = false;
 	root_check.info = &root_info;
-	root_check.info->node = root;
 	std::vector<check_item> echecklist(1, root_check);
 	std::vector<check_item> dchecklist(1, root_check);
 	expansion_src L;
@@ -40,6 +39,8 @@ void solve_gravity(tree_client root, double theta, int min_rung, bool stats) {
 	printf( "fmm\n");
 	root.kick_fmm(0, false, std::move(dchecklist), std::move(echecklist), std::move(L)).get();
 	fmm_time += timer();
+	printf( "Cleaning up\n");
+	check_cleanup();
 
 }
 

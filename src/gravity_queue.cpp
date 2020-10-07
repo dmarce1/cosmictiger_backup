@@ -10,7 +10,7 @@
 struct work_subunit1 {
 	std::shared_ptr<std::vector<_4force>> f;
 	std::shared_ptr<std::vector<part_pos>> x;
-	std::vector<tree_client> y;
+	std::vector<tree_ptr> y;
 	std::vector<multi_src*> z;
 	std::function<void(void)> callback;
 };
@@ -31,11 +31,6 @@ struct work_unit {
 	}
 };
 
-struct tree_client_hash {
-	std::size_t operator()(const tree_client &id) const {
-		return (id.get_ptr() >> 3);
-	}
-};
 
 static std::atomic<std::uint64_t> next_index(0);
 static std::unordered_map<std::uint64_t, work_unit> map[MAP_SIZE];
@@ -74,7 +69,7 @@ void gravity_queue_retire_futures() {
 	hpx::wait_all(futs.begin(), futs.end());
 }
 
-void gravity_queue_add_work(std::uint64_t id, std::shared_ptr<std::vector<_4force>> f, std::shared_ptr<std::vector<part_pos>> x, std::vector<tree_client> &&y,
+void gravity_queue_add_work(std::uint64_t id, std::shared_ptr<std::vector<_4force>> f, std::shared_ptr<std::vector<part_pos>> x, std::vector<tree_ptr> &&y,
 		std::vector<multi_src*> &&z, std::function<void(void)> &&callback) {
 	std::unique_lock<mutex_type> lock(mtx[id % MAP_SIZE]);
 	auto *entry = &(map[id % MAP_SIZE][id / MAP_SIZE]);
@@ -89,17 +84,17 @@ void gravity_queue_add_work(std::uint64_t id, std::shared_ptr<std::vector<_4forc
 	if (entry->members_in = entry->member_count) {
 		futures.push_back(hpx::async([entry]() {
 			auto unit = std::move(*entry);
-			std::unordered_set<tree_client, tree_client_hash> part_requests;
+			std::unordered_set<tree_ptr, tree_ptr_hash> part_requests;
 			for (int i = 0; i < unit.units.size(); i++) {
 				for (auto &this_y : unit.units[i].y) {
 					part_requests.insert(this_y);
 				}
 			}
-			std::vector<tree_client> part_req_vec(part_requests.begin(), part_requests.end());
+			std::vector<tree_ptr> part_req_vec(part_requests.begin(), part_requests.end());
 			auto pos = get_positions(part_req_vec);
 			std::vector < part_pos > y;
 			std::vector<std::pair<int, int>> yiter;
-			std::unordered_map<tree_client, std::pair<int, int>, tree_client_hash> ymap;
+			std::unordered_map<tree_ptr, std::pair<int, int>, tree_ptr_hash> ymap;
 			int index = 0;
 			int i = 0;
 			for (const auto &this_pos : pos) {

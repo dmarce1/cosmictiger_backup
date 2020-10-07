@@ -11,13 +11,31 @@
 #include <cosmictiger/multipole.hpp>
 #include <cosmictiger/tree_client.hpp>
 
-void* check_allocate_info();
-multi_src* check_allocate_multi();
+void* check_allocate(std::size_t);
 void check_cleanup();
+
+struct tree_ptr {
+	int rank;
+	std::uint64_t ptr;
+	template<class A>
+	void serialize(A &&arc, unsigned) {
+		arc & rank;
+		arc & ptr;
+	}
+	inline bool operator==(tree_ptr other) const {
+		return rank == other.rank && ptr == other.ptr;
+	}
+};
+
+struct tree_ptr_hash {
+	std::size_t operator()(tree_ptr ptr) const {
+		return ptr.ptr ^ ptr.rank;
+	}
+};
 
 struct check_info {
 	multi_src *multi;
-	tree_client node;
+	tree_ptr node;
 	bool leaf;
 
 	HPX_SERIALIZATION_SPLIT_MEMBER();
@@ -26,7 +44,7 @@ struct check_info {
 		bool null;
 		arc & null;
 		if (!null) {
-			multi = (multi_src*) check_allocate_multi();
+			multi = (multi_src*) check_allocate(sizeof(multi_src));
 			arc & *multi;
 		} else {
 			multi = nullptr;
@@ -55,7 +73,7 @@ struct check_item {
 	HPX_SERIALIZATION_SPLIT_MEMBER();
 	template<class A>
 	void load(A &&arc, unsigned) {
-		auto *ptr = check_allocate_info();
+		auto *ptr = check_allocate(sizeof(check_info) + sizeof(multi_src));
 		info = (check_info*) ptr;
 		info->multi = (multi_src*) ((void*) ptr + sizeof(check_info));
 		arc & *(info->multi);
