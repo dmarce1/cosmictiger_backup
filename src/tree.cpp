@@ -64,6 +64,14 @@ HPX_PLAIN_ACTION (tree_complete_drift);
 HPX_PLAIN_ACTION (tree_cleanup);
 HPX_PLAIN_ACTION (tree_set_fmm_params);
 
+tree_client tree_allocate(tree node) {
+	auto id = hpx::new_<tree>(hpx::find_here(), std::move(node)).get();
+	auto ptr = tree::get_ptr_action()(id);
+	return tree_client(id, ptr);
+}
+
+HPX_PLAIN_ACTION (tree_allocate);
+
 int tree_ewald_min_level(double theta, double h) {
 	int lev = 12;
 	while (1) {
@@ -637,14 +645,7 @@ tree_stats tree::load_balance(int stack_cnt, std::uint64_t index, std::uint64_t 
 tree_client tree::migrate(hpx::id_type locality) {
 	tptr->child_info[0].multi = nullptr;
 	tptr->child_info[1].multi = nullptr;
-	auto new_ptr = hpx::new_<tree>(locality, *this);
-	auto new_id = new_ptr.get();
-	if (hpx::get_colocation_id(new_id).get() == hpx::find_here()) {
-		return tree_client(new_id, get_ptr_action()(new_id));
-	} else {
-		return tree_client(new_id, hpx::async<get_ptr_action>(new_id).get());
-	}
-
+	return tree_allocate_action()(locality, std::move(*this));
 }
 
 std::uint64_t tree::prune(int stack_cnt) {

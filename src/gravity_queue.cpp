@@ -81,6 +81,7 @@ void gravity_queue_add_work(std::uint64_t id, std::shared_ptr<std::vector<_4forc
 	subunit.z = std::move(z);
 	subunit.callback = std::move(callback);
 	entry->units.push_back(std::move(subunit));
+	assert(entry->members_in <= entry->member_count);
 	if (entry->members_in == entry->member_count) {
 		auto func = hpx::async([entry]() {
 			auto unit = std::move(*entry);

@@ -86,6 +86,7 @@ int hpx_main(int argc, char *argv[]) {
 	} while (ndistrib > 0);
 	printf("%li loaded\n", ntotal);
 	printf("load balancing\n");
+	ts = timer();
 	tstat = root.load_balance(0, false, 0, ntotal).get();
 	printf("tree_stats %li %li %li\n", tstat.nmig, tstat.nnode, tstat.nleaf);
 	printf("Data loaded and distributed in %e seconds\n", timer() - ts);
