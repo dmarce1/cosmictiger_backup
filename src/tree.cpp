@@ -307,7 +307,8 @@ multipole_return tree::compute_multipoles(int stack_cnt, std::uint64_t work_id) 
 	tptr->multi.r = r;
 	tptr->nactive = nactive;
 	tptr->work_id = work_id;
-	if (work_id != -1) {
+	if (tptr->leaf && tptr->nactive) {
+		assert(work_id != -1);
 		gravity_queue_checkin(work_id);
 	}
 	rc.info.multi = &tptr->multi;
@@ -567,9 +568,9 @@ int tree::kick_fmm(int stack_cnt, std::vector<check_item> &&dchecks, std::vector
 				(*f)[i].phi = this_f.phi;
 				(*f)[i].g = this_f.g;
 			}
-//			gravity_queue_add_work(tptr->work_id, f, x, std::move(PP_list), std::move(PC_list), []() {
-//
-//			});
+			gravity_queue_add_work(tptr->work_id, f, x, std::move(PP_list), std::move(PC_list), []() {
+
+			});
 
 		} else {
 			auto futl = tptr->children[0].kick_fmm(stack_cnt, true, dchecks, echecks, L);
@@ -579,12 +580,15 @@ int tree::kick_fmm(int stack_cnt, std::vector<check_item> &&dchecks, std::vector
 		}
 
 	}
+	if (tptr->level == 0) {
+		gravity_queue_retire_futures();
+	}
 	return 0;
 }
 
 tree_stats tree::load_balance(int stack_cnt, std::uint64_t index, std::uint64_t total) {
 	tree_stats stats;
-	assert( index < total );
+	assert(index < total);
 	if (!tptr->leaf) {
 		stats.nnode++;
 		auto futl = tptr->children[0].load_balance(stack_cnt, true, index, total);

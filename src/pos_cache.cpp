@@ -14,7 +14,7 @@ struct cache_entry {
 	tree_ptr id;
 	bool ready;
 	std::shared_ptr<std::vector<part_pos>> data_ptr;
-	cache_entry() {
+	cache_entry(int) {
 		id.rank = -1;
 		id.ptr = 0;
 		ready = false;
@@ -45,7 +45,8 @@ HPX_PLAIN_ACTION (get_remote_positions);
 std::vector<std::vector<part_pos>> get_remote_positions(const std::vector<tree_ptr> ids) {
 	std::vector < std::vector < part_pos >> pos(ids.size());
 	for (int i = 0; i < ids.size(); i++) {
-		pos.push_back(reinterpret_cast<tree*>(ids[i].ptr)->get_positions());
+		auto this_pos = reinterpret_cast<tree*>(ids[i].ptr)->get_positions();
+		pos[i] = std::move(this_pos);
 	}
 	return std::move(pos);
 
@@ -75,7 +76,7 @@ std::vector<std::shared_ptr<std::vector<part_pos>>> get_positions(const std::vec
 				line.entries[i] = line.entries[i - 1];
 			}
 			auto &new_entry = line.entries[0];
-			new_entry = std::make_shared<cache_entry>();
+			new_entry = std::make_shared < cache_entry > (0);
 			new_entry->id = ids[i];
 			new_entry->ready = false;
 			cache_entries[i] = new_entry;
@@ -103,9 +104,12 @@ std::vector<std::shared_ptr<std::vector<part_pos>>> get_positions(const std::vec
 		int j = 0;
 		for (auto this_pos : pos) {
 			const auto resi = req.second.order[j];
-			res[resi] = nullptr;
-			*(cache_entries[resi]->data_ptr) = std::move(this_pos);
-			cache_entries[resi]->ready = true;
+			auto entry = cache_entries[resi];
+			auto vptr = entry->data_ptr;
+			auto &v = *vptr;
+			v = std::move(this_pos);
+			res[resi] = vptr;
+			entry->ready = true;
 			j++;
 		}
 		i++;
