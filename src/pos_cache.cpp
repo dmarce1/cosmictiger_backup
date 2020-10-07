@@ -3,8 +3,8 @@
 #include <cosmictiger/tree.hpp>
 #include <cosmictiger/pos_cache.hpp>
 
-#define CACHE_WIDTH (32)
-#define CACHE_DEPTH 1024
+#define CACHE_WIDTH (32 * 1024)
+#define CACHE_DEPTH 2
 
 #define CACHE_NOTFOUND 0
 #define CACHE_NOTREADY 1
@@ -122,7 +122,7 @@ std::vector<std::shared_ptr<std::vector<part_pos>>> get_positions(const std::vec
 			hpx::this_thread::yield();
 		}
 	}
-	printf( "%e\n", (double) hits/ (hits+misses));
+//	printf( "%e\n", (double) hits/ (hits+misses));
 	return std::move(res);
 }
 

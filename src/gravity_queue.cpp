@@ -82,7 +82,7 @@ void gravity_queue_add_work(std::uint64_t id, std::shared_ptr<std::vector<_4forc
 	subunit.callback = std::move(callback);
 	entry->units.push_back(std::move(subunit));
 	if (entry->members_in == entry->member_count) {
-		futures.push_back(hpx::async([entry]() {
+		auto func = hpx::async([entry]() {
 			auto unit = std::move(*entry);
 			std::unordered_set<tree_ptr, tree_ptr_hash> part_requests;
 			for (int i = 0; i < unit.units.size(); i++) {
@@ -126,7 +126,9 @@ void gravity_queue_add_work(std::uint64_t id, std::shared_ptr<std::vector<_4forc
 //	//			u.callback();
 //			}
 
-		}));
+		});
+		std::lock_guard<mutex_type> lock(fut_mtx);
+		futures.push_back(std::move(func));
 	}
 }
 
