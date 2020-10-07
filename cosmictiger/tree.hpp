@@ -71,7 +71,7 @@ struct tree_stats {
 
 void tree_set_fmm_params(fmm_params);
 
-struct drift_in_return {
+struct drift_return {
 	bucket parts;
 	std::uint64_t cnt;
 	template<class A>
@@ -89,11 +89,10 @@ public:
 	tree(const tree&);
 	~tree();
 	tree_dir build_tree_dir(tree_client) const;
-	multipole_return compute_multipoles(int, std::uint64_t, std::uint64_t);
+	multipole_return compute_multipoles(int, std::uint64_t, bucket&& parts, std::uint64_t);
 	void create_children();
 	int destroy(int);
-	drift_in_return drift_in(int, float dt);
-	int drift_out(int, bucket&&, std::uint64_t);
+	drift_return drift(int, float dt);
 	int place_parts(bucket&&);
 	check_pair get_child_checks() const;
 	check_info get_check_info() const;
@@ -111,8 +110,7 @@ public:
 	std::vector<bool> checks_far(const std::vector<check_item>&, bool ewald);
 	/**/HPX_DEFINE_COMPONENT_ACTION(tree,build_tree_dir);
 	/**/HPX_DEFINE_COMPONENT_ACTION(tree,destroy);
-	/**/HPX_DEFINE_COMPONENT_ACTION(tree,drift_in);
-	/**/HPX_DEFINE_COMPONENT_ACTION(tree,drift_out);
+	/**/HPX_DEFINE_COMPONENT_ACTION(tree,drift);
 	/**/HPX_DEFINE_COMPONENT_ACTION(tree,kick_fmm);
 	/**/HPX_DEFINE_COMPONENT_ACTION(tree,grow);
 	/**/HPX_DEFINE_COMPONENT_ACTION(tree,load_balance);

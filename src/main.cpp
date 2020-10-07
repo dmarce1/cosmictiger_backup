@@ -23,7 +23,7 @@ void solve_gravity(tree_client root, double theta, int min_rung, bool stats) {
 	set_params(theta, min_rung, stats);
 	multipole_time -= timer();
 	printf("multipoles\n");
-	root.compute_multipoles(0, false, -1, 0).get();
+	root.compute_multipoles(0, false, -1, bucket(), 0).get();
 	multipole_time += timer();
 	fmm_time -= timer();
 	check_item root_check;
@@ -104,14 +104,20 @@ int hpx_main(int argc, char *argv[]) {
 //	double btime = 0.0;
 	for (int step = 0; step < 10; step++) {
 		auto dtime = timer();
-		auto dr = root.drift_in(0, false, 0.009).get();
+		auto dr = root.drift(0, false, 0.009).get();
+		printf( "D: %e\n", timer() - dtime);
+		dtime = timer();
 //		int cnt = 0;
 		auto cnt = root.count_children().get();
-		root.drift_out(0, false, std::move(dr.parts), 0);
-		int rc = root.verify(0, false).get();
-		if (rc) {
-			printf("%s\n", tree_verification_error(rc).c_str());
-		}
+		printf( "C: %e\n", timer() - dtime);
+		dtime = timer();
+		root.compute_multipoles(0, false, -1, std::move(dr.parts), 0);
+		printf( "M: %e\n", timer() - dtime);
+		dtime = timer();
+//		int rc = root.verify(0, false).get();
+//		if (rc) {
+//			printf("%s\n", tree_verification_error(rc).c_str());
+//		}
 		printf("Drift takes %e seconds %i\n", timer() - dtime, cnt);
 	}
 //	printf("%e\n", btime);

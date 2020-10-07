@@ -16,7 +16,7 @@ class check_item;
 class multipole_return;
 class check_info;
 class tree_stats;
-class drift_in_return;
+class drift_return;
 
 using check_pair = std::pair<check_item,check_item>;
 
@@ -53,8 +53,7 @@ public:
 		return hpx::get_locality_id_from_id(id);
 	}
 	hpx::future<int> destroy(int) const;
-	hpx::future<drift_in_return> drift_in(int, bool, float dt) const;
-	hpx::future<int> drift_out(int, bool, bucket&&, std::uint64_t) const;
+	hpx::future<drift_return> drift(int, bool, float dt) const;
 
 	int place_parts(bucket&&) const;
 	check_pair get_child_checks() const;
@@ -62,7 +61,7 @@ public:
 	hpx::future<std::uint64_t> grow(int, bool, bucket&&, bool=false) const;
 	hpx::future<tree_client> migrate(hpx::id_type) const;
 	hpx::future<tree_stats> load_balance(int, bool left, std::uint64_t, std::uint64_t) const;
-	hpx::future<multipole_return> compute_multipoles(int, bool left, std::uint64_t work_id, std::uint64_t) const;
+	hpx::future<multipole_return> compute_multipoles(int, bool left, std::uint64_t work_id, bucket&&, std::uint64_t) const;
 	hpx::future<std::uint64_t> count_children() const;
 	hpx::future<int> verify(int, bool) const;
 	std::vector<part_pos> get_positions() const;
