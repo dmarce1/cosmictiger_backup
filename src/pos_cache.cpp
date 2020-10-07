@@ -63,10 +63,10 @@ std::vector<std::shared_ptr<std::vector<part_pos>>> get_positions(const std::vec
 		auto &line = cache[index];
 		std::lock_guard<mutex_type> lock(line.mtx);
 		std::shared_ptr<cache_entry> entry = nullptr;
-		for (int i = 0; i < CACHE_DEPTH; i++) {
-			if (line.entries[i] != nullptr) {
-				if (line.entries[i]->id == ids[i]) {
-					entry = line.entries[i];
+		for (int j = 0; j < CACHE_DEPTH; j++) {
+			if (line.entries[j] != nullptr) {
+				if (line.entries[j]->id == ids[i]) {
+					entry = line.entries[j];
 					break;
 				}
 			}

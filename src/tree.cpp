@@ -9,7 +9,7 @@
 #include <stack>
 #include <thread>
 
-#define WORKGROUP_SIZE 1
+#define WORKGROUP_SIZE 64
 
 #ifdef HPX_LITE
 HPX_REGISTER_MINIMAL_COMPONENT_FACTORY(hpx::components::managed_component<tree>, tree);
