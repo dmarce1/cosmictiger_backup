@@ -214,7 +214,7 @@ tree_dir tree::build_tree_dir(tree_client self) const {
 	return dir;
 }
 
-multipole_return tree::compute_multipoles(int stack_cnt, std::uint64_t work_id) {
+multipole_return tree::compute_multipoles(int stack_cnt, std::uint64_t work_id, std::uint64_t index) {
 	multipole_return rc;
 	std::uint64_t nactive = 0;
 	vect<double> xc;
@@ -266,8 +266,9 @@ multipole_return tree::compute_multipoles(int stack_cnt, std::uint64_t work_id) 
 			prange.max = prange.min = xc;
 		}
 	} else {
-		auto futl = tptr->children[0].compute_multipoles(stack_cnt, true, work_id);
-		auto futr = tptr->children[1].compute_multipoles(stack_cnt, false, work_id);
+		local_load_balance(index, opts.problem_size);
+		auto futl = tptr->children[0].compute_multipoles(stack_cnt, true, work_id, index);
+		auto futr = tptr->children[1].compute_multipoles(stack_cnt, false, work_id, index + tptr->child_cnt[0]);
 		auto L = futl.get();
 		auto R = futr.get();
 		tptr->child_info[0] = L.info;
@@ -594,47 +595,49 @@ int tree::kick_fmm(int stack_cnt, std::vector<check_item> &&dchecks, std::vector
 	return 0;
 }
 
+std::uint64_t tree::local_load_balance(std::uint64_t index, std::uint64_t total) {
+	std::uint64_t nmig = 0;
+	const auto &localities = hpx_localities();
+	const int min_level = bits_to_level(localities.size());
+	std::uint64_t il, ir;
+	const int child_level = tptr->level + 1;
+	if (child_level > min_level) {
+		il = index * std::uint64_t(localities.size()) / total;
+		ir = (index + tptr->child_cnt[0]) * std::uint64_t(localities.size()) / total;
+		assert(il >= 0);
+		assert(il < localities.size());
+		assert(ir >= 0);
+		assert(ir < localities.size());
+		hpx::future<tree_client> newl;
+		hpx::future<tree_client> newr;
+		if (il != tptr->children[0].get_rank()) {
+			nmig++;
+			newl = tptr->children[0].migrate(localities[il]);
+		}
+		if (ir != tptr->children[1].get_rank()) {
+			nmig++;
+			newr = tptr->children[1].migrate(localities[ir]);
+		}
+		if (newl.valid()) {
+			tptr->children[0] = newl.get();
+		}
+		if (newr.valid()) {
+			tptr->children[1] = newr.get();
+		}
+	}
+	return nmig;
+}
+
 tree_stats tree::load_balance(int stack_cnt, std::uint64_t index, std::uint64_t total) {
 	tree_stats stats;
 	assert(index < total);
 	if (!tptr->leaf) {
 		stats.nnode++;
+		stats.nmig = local_load_balance(index, total);
 		auto futl = tptr->children[0].load_balance(stack_cnt, true, index, total);
 		auto futr = tptr->children[1].load_balance(stack_cnt, false, index + tptr->child_cnt[0], total);
 		stats += futl.get();
 		stats += futr.get();
-		const auto &localities = hpx_localities();
-		const int min_level = bits_to_level(localities.size());
-		std::uint64_t il, ir;
-		const int child_level = tptr->level + 1;
-		if (child_level > min_level) {
-			il = index * std::uint64_t(localities.size()) / total;
-			ir = (index + tptr->child_cnt[0]) * std::uint64_t(localities.size()) / total;
-			assert(il >= 0);
-			assert(il < localities.size());
-			assert(ir >= 0);
-			assert(ir < localities.size());
-			hpx::future<tree_client> newl;
-			hpx::future<tree_client> newr;
-			if (il != tptr->children[0].get_rank()) {
-//				printf( "%i %i %i %i %i\n", il,  tptr->children[0].get_rank(), index, localities.size(), total);
-				stats.nmig++;
-//				printf( "Migrating from %i to %i\n", hpx::get_locality_id(), il);
-				newl = tptr->children[0].migrate(localities[il]);
-			}
-			if (ir != tptr->children[1].get_rank()) {
-//				printf( "%i %i\n", ir,  tptr->children[1].get_rank());
-				stats.nmig++;
-//				printf( "Migrating from %i to %i\n", hpx::get_locality_id(), ir);
-				newr = tptr->children[1].migrate(localities[ir]);
-			}
-			if (newl.valid()) {
-				tptr->children[0] = newl.get();
-			}
-			if (newr.valid()) {
-				tptr->children[1] = newr.get();
-			}
-		}
 	} else {
 		stats.nnode++;
 		stats.nleaf++;
@@ -714,15 +717,13 @@ std::uint64_t tree::drift(int stack_cnt, int step, tree_client parent, tree_clie
 	tptr->parent = parent;
 	std::uint64_t drifted = 0;
 	if (tptr->leaf) {
-		while (tptr->lock++ != 0) {
-			tptr->lock--;
-		}
+		std::unique_lock<mutex_type> lock(tptr->mtx);
 		bucket exit_parts;
 		auto i = tptr->parts.begin();
 		while (i != tptr->parts.end()) {
 			if (step % 2 == i->step) {
 				auto x = pos_to_double(i->x);
-				const auto v = i->v;
+				const auto v = i->v*400.0;
 				x += v * dt;
 				i->x = double_to_pos(x);
 				i->step++;
@@ -737,7 +738,7 @@ std::uint64_t tree::drift(int stack_cnt, int step, tree_client parent, tree_clie
 				i++;
 			}
 		}
-		tptr->lock--;
+		lock.unlock();
 		if (exit_parts.size()) {
 			if (tptr->level <= min_level) {
 				directory->find_home(stack_cnt, std::move(exit_parts));
@@ -759,15 +760,12 @@ std::uint64_t tree::drift(int stack_cnt, int step, tree_client parent, tree_clie
 
 int tree::find_home_child(int stack_cnt, bucket parts) {
 	if (tptr->leaf) {
-		while (tptr->lock++ != 0) {
-			tptr->lock--;
-		}
+		std::lock_guard<mutex_type> lock(tptr->mtx);
 		while (parts.size()) {
 			assert(in_range(pos_to_double(parts.front().x), tptr->box));
 			tptr->parts.insert(parts.front());
 			parts.remove(parts.begin());
 		}
-		tptr->lock--;
 	} else {
 		bucket l_parts;
 		bucket r_parts;

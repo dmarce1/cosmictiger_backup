@@ -22,8 +22,8 @@ void set_params(double theta, int min_rung, bool stats) {
 void solve_gravity(tree_client root, double theta, int min_rung, bool stats) {
 	set_params(theta, min_rung, stats);
 	multipole_time -= timer();
-	printf( "multipoles\n");
-	root.compute_multipoles(0, false, -1).get();
+	printf("multipoles\n");
+	root.compute_multipoles(0, false, -1, 0).get();
 	multipole_time += timer();
 	fmm_time -= timer();
 	check_item root_check;
@@ -36,10 +36,10 @@ void solve_gravity(tree_client root, double theta, int min_rung, bool stats) {
 	expansion_src L;
 	L.l = 0.0;
 	L.x[0] = L.x[1] = L.x[2] = 0.5;
-	printf( "fmm\n");
+	printf("fmm\n");
 	root.kick_fmm(0, false, std::move(dchecklist), std::move(echecklist), std::move(L)).get();
 	fmm_time += timer();
-	printf( "Cleaning up\n");
+	printf("Cleaning up\n");
 	check_cleanup();
 
 }
@@ -93,20 +93,28 @@ int hpx_main(int argc, char *argv[]) {
 
 	solve_gravity(root, 0.5, 0, false);
 	printf("Multipoles took %e seconds\n", multipole_time);
-	printf("FMM took %e seconds\n",fmm_time);
+	printf("FMM took %e seconds\n", fmm_time);
+
+	for (int step = 0; step < 1000; step++) {
+		auto dtime = timer();
+		ts = timer();
+		std::uint64_t cnt = root.drift(0, false, step, tree_client(), root, 0.009).get();
+		printf( "D: %e\n", timer() - ts);
+		ts = timer();
+		printf("Pruning\n");
+		root.prune(0, false).get();
+		printf( "P: %e\n", timer() - ts);
+		ts = timer();
+		printf("Balancing %li particles\n", opts.problem_size);
+		tstat = root.load_balance(0, false, 0, opts.problem_size).get();
+		printf( "B: %e\n", timer() - ts);
+		ts = timer();
+		printf("tree_stats %li %li %li\n", tstat.nmig, tstat.nnode, tstat.nleaf);
+		double pct_drift = double(cnt) / opts.problem_size * 100;
+		dtime = timer() - dtime;
+		printf("Drift takes %e seconds %f%% drifted\n", dtime, pct_drift);
+	}
 	printf("Destroying tree\n");
-
-//	int step = 0;
-//	auto dtime = timer();
-//	std::uint64_t cnt = root.drift(0, false, step++, tree_client(), root, 0.01).get();
-//	printf("Pruning\n");
-//	root.prune(0, false).get();
-//	printf("Balancing %li particles\n", opts.problem_size);
-//	root.load_balance(0, false, 0, opts.problem_size).get();
-//	double pct_drift = double(cnt) / opts.problem_size * 100;
-//	dtime = timer() - dtime;
-//	printf("Drift takes %e seconds %f%% drifted\n", dtime, pct_drift);
-
 	root.destroy(0).get();
 	printf("exiting\n");
 	return hpx::finalize();

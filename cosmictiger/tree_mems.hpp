@@ -22,12 +22,11 @@ struct tree_mems {
 	box_id_type id;
 	std::uint64_t nactive;
 	std::uint64_t work_id;
-	std::atomic<int> lock;
+	mutex_type mtx;
 	std::uint8_t leaf;
 	std::uint8_t level;
 
-	tree_mems() :
-			lock(0) {
+	tree_mems() {
 	}
 
 	tree_mems& operator=(const tree_mems &other) {

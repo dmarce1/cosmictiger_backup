@@ -41,7 +41,7 @@ struct fmm_params {
 	bool stats;
 
 	template<class A>
-	void serialize(A&& arc, unsigned) {
+	void serialize(A &&arc, unsigned) {
 		arc & theta;
 		arc & min_rung;
 		arc & stats;
@@ -53,7 +53,7 @@ struct tree_stats {
 	std::uint64_t nnode;
 	std::uint64_t nleaf;
 	template<class A>
-	void serialize(A&& arc, unsigned) {
+	void serialize(A &&arc, unsigned) {
 		arc & nmig;
 		arc & nnode;
 		arc & nleaf;
@@ -61,7 +61,7 @@ struct tree_stats {
 	tree_stats() {
 		nmig = nnode = nleaf = 0;
 	}
-	tree_stats& operator+=( const tree_stats& other) {
+	tree_stats& operator+=(const tree_stats &other) {
 		nmig += other.nmig;
 		nnode += other.nnode;
 		nleaf += other.nleaf;
@@ -79,7 +79,7 @@ public:
 	tree(const tree&);
 	~tree();
 	tree_dir build_tree_dir(tree_client) const;
-	multipole_return compute_multipoles(int, std::uint64_t);
+	multipole_return compute_multipoles(int, std::uint64_t, std::uint64_t);
 	void create_children();
 	int destroy(int);
 	std::uint64_t drift(int, int, tree_client, tree_client, float dt);
@@ -93,6 +93,7 @@ public:
 	std::uint64_t grow(int, bucket&&, bool);
 	int kick_fmm(int, std::vector<check_item>&&, std::vector<check_item>&&, expansion_src&&);
 	tree_stats load_balance(int stack_cnt, std::uint64_t index, std::uint64_t total);
+	std::uint64_t local_load_balance(std::uint64_t, std::uint64_t);
 	tree_client migrate(hpx::id_type);
 	std::uint64_t prune(int);
 	int verify(int) const;
