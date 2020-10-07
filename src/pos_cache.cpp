@@ -3,8 +3,8 @@
 #include <cosmictiger/tree.hpp>
 #include <cosmictiger/pos_cache.hpp>
 
-#define CACHE_WIDTH (32 * 1024)
-#define CACHE_DEPTH 2
+#define CACHE_WIDTH (32)
+#define CACHE_DEPTH 1024
 
 #define CACHE_NOTFOUND 0
 #define CACHE_NOTREADY 1
@@ -57,6 +57,7 @@ std::vector<std::shared_ptr<std::vector<part_pos>>> get_positions(const std::vec
 	std::vector < std::shared_ptr < cache_entry >> cache_entries(ids.size());
 	std::unordered_map<int, request_type> requests;
 	std::vector<bool> notfound(ids.size());
+	static std::atomic<int> hits(0), misses(0);
 	for (int i = 0; i < ids.size(); i++) {
 		const int index = gen_index(ids[i]);
 		auto &line = cache[index];
@@ -80,7 +81,9 @@ std::vector<std::shared_ptr<std::vector<part_pos>>> get_positions(const std::vec
 			new_entry->id = ids[i];
 			new_entry->ready = false;
 			cache_entries[i] = new_entry;
+			misses++;
 		} else {
+			hits++;
 			notfound[i] = false;
 			res[i] = entry->data_ptr;
 			cache_entries[i] = entry;
@@ -119,6 +122,7 @@ std::vector<std::shared_ptr<std::vector<part_pos>>> get_positions(const std::vec
 			hpx::this_thread::yield();
 		}
 	}
+	printf( "%e\n", (double) hits/ (hits+misses));
 	return std::move(res);
 }
 
