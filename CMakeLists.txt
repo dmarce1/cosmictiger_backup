@@ -21,6 +21,9 @@ find_package(HPX REQUIRED NO_CMAKE_PACKAGE_REGISTRY)
 find_package(Silo REQUIRED)
 find_package(Boost REQUIRED)
 
+enable_language(CUDA)
+
+
 set(CMAKE_CXX_FLAGS "-Wno-pointer-arith -isystem /home/dmarce1/local/boost/include -DBOOST_ALL_NO_LIB -DBOOST_DISABLE_ASSERTS -O3 -std=c++17 -DNDEBUG -ffast-math -march=native")
 #set(CMAKE_CXX_FLAGS "-isystem /home/dmarce1/local/boost/include -DBOOST_ALL_NO_LIB -DBOOST_DISABLE_ASSERTS -g -std=c++17 -ffast-math -march=native")
 
@@ -28,6 +31,8 @@ set(cosmictiger_source_files
 	src/bucket.cpp
 	src/check.cpp
 	src/fileio.cpp
+	src/gravity.cpp
+	src/gravity_cuda.cu
 	src/gravity_queue.cpp
 	src/hpx.cpp
 	src/main.cpp
@@ -45,17 +50,22 @@ set(cosmictiger_source_files
 set(cosmictiger_header_files
 	cosmictiger/bucket.hpp	 
 	cosmictiger/check.hpp	 
+	cosmictiger/cuda_check.hpp  
 	cosmictiger/cuda_export.hpp  
 	cosmictiger/defs.hpp	 
 	cosmictiger/expansion.hpp	 
 	cosmictiger/fileio.hpp	 
 	cosmictiger/gravity.hpp
+	cosmictiger/gravity_cuda.hpp
 	cosmictiger/gravity_queue.hpp
+ 	cosmictiger/green.hpp
  	cosmictiger/hpx.hpp	
+	cosmictiger/interactions.hpp	
 	cosmictiger/multipole.hpp	
 	cosmictiger/options.hpp	
 	cosmictiger/output.hpp	
 	cosmictiger/particle.hpp	
+	cosmictiger/pinned_vector.hpp
 	cosmictiger/pos_cache.hpp	
 	cosmictiger/position.hpp	
 	cosmictiger/rand.hpp	 

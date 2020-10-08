@@ -6,10 +6,15 @@
 #include <cosmictiger/tree.hpp>
 #include <cosmictiger/fileio.hpp>
 
+
 #include <ctime>
 
 double multipole_time = 0.0;
 double fmm_time = 0.0;
+
+void yield_to_hpx() {
+	hpx::this_thread::yield();
+}
 
 void set_params(double theta, int min_rung, bool stats) {
 	fmm_params params;
