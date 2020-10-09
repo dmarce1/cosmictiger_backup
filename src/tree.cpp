@@ -504,7 +504,7 @@ bucket tree::get_parts() {
 	return std::move(tptr->parts);
 }
 
-std::vector<bool> tree::checks_far(const std::vector<check_item> &checks, bool ewald) {
+std::vector<int> tree::checks_far(const std::vector<check_item> &checks, bool ewald) {
 	static const float h = opts.h;
 	const simd_float R1 = tptr->multi.r + float(2) * h;
 	const vect<simd_int> X1 = tptr->multi.x;
@@ -512,7 +512,7 @@ std::vector<bool> tree::checks_far(const std::vector<check_item> &checks, bool e
 	const int simd_size = (checks.size() - 1) / simd_float::size() + 1;
 	std::vector<simd_float> R2(simd_size);
 	std::vector<vect<simd_int>> X2(simd_size);
-	std::vector<bool> res(checks.size());
+	std::vector<int> res(checks.size());
 	for (int i = 0; i < checks.size(); i += simd_float::size()) {
 		const int j = i / simd_float::size();
 		for (int k = 0; k < simd_float::size(); k++) {
@@ -542,17 +542,21 @@ std::vector<bool> tree::checks_far(const std::vector<check_item> &checks, bool e
 	return res;
 }
 
+
+
+
 int tree::kick_fmm(int stack_cnt, std::vector<check_item> &&dchecks, std::vector<check_item> &&echecks, expansion_src &&L) {
 
 	std::vector<check_item> next_dchecks;
 	std::vector<check_item> next_echecks;
+	next_dchecks.reserve(dchecks.size());
+	next_echecks.reserve(echecks.size());
 	std::vector<tree_ptr> PP_list;
 	std::vector<tree_ptr> CP_list;
 	std::vector<const multi_src*> PC_list;
 	std::vector<const multi_src*> CC_list;
 	std::vector<const multi_src*> ewald_list;
 	const auto xcom = pos_to_double(tptr->multi.x);
-//	printf( "kick_fmm %li %li\n", dchecks.size(), echecks.size());
 	if (tptr->nactive > 0) {
 		L.l = L.l << (xcom - L.x);
 		L.x = xcom;
@@ -599,6 +603,7 @@ int tree::kick_fmm(int stack_cnt, std::vector<check_item> &&dchecks, std::vector
 		echecks = echecks_fut.get();
 		if (tptr->leaf) {
 			while (dchecks.size()) {
+				next_dchecks.reserve(dchecks.size());
 				next_dchecks.resize(0);
 				const auto far = checks_far(dchecks, false);
 				for (int i = 0; i < dchecks.size(); i++) {
@@ -641,9 +646,6 @@ int tree::kick_fmm(int stack_cnt, std::vector<check_item> &&dchecks, std::vector
 			futr.get();
 		}
 
-	}
-	if (tptr->level == 0) {
-		gravity_queue_retire_futures();
 	}
 	return 0;
 }

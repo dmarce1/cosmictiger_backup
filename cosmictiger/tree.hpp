@@ -107,7 +107,7 @@ public:
 	std::uint64_t count_children();
 	int verify(int) const;
 	std::size_t size() const;
-	std::vector<bool> checks_far(const std::vector<check_item>&, bool ewald);
+	std::vector<int> checks_far(const std::vector<check_item>&, bool ewald);
 	/**/HPX_DEFINE_COMPONENT_ACTION(tree,build_tree_dir);
 	/**/HPX_DEFINE_COMPONENT_ACTION(tree,destroy);
 	/**/HPX_DEFINE_COMPONENT_ACTION(tree,drift);

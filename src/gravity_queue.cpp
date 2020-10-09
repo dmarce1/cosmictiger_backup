@@ -30,8 +30,6 @@ static std::atomic<std::uint64_t> next_index(0);
 static std::unordered_map<std::uint64_t, work_unit> map[MAP_SIZE];
 static mutex_type mtx[MAP_SIZE];
 static mutex_type fut_mtx;
-static std::vector<hpx::future<void>> futures;
-
 std::uint64_t gravity_queue_genid() {
 	return next_index++ * std::uint64_t(hpx_localities().size()) + std::uint64_t(hpx::get_locality_id());
 }
@@ -41,27 +39,6 @@ void gravity_queue_checkin(std::uint64_t id) {
 	map[id % MAP_SIZE][id / MAP_SIZE].member_count++;
 }
 
-HPX_PLAIN_ACTION (gravity_queue_retire_futures);
-
-void gravity_queue_retire_futures() {
-	std::vector<hpx::future<void>> futs;
-	const auto il = ((hpx::get_locality_id() + 1) << 1) - 1;
-	const auto ir = ((hpx::get_locality_id() + 1) << 1);
-	if (il < hpx_localities().size()) {
-		futs.push_back(hpx::async<gravity_queue_retire_futures_action>(hpx_localities()[il]));
-	}
-	if (ir < hpx_localities().size()) {
-		futs.push_back(hpx::async<gravity_queue_retire_futures_action>(hpx_localities()[ir]));
-	}
-	for (auto &f : futures) {
-		f.get();
-	}
-	for (int i = 0; i < MAP_SIZE; i++) {
-		map[i].clear();
-	}
-	futures.clear();
-	hpx::wait_all(futs.begin(), futs.end());
-}
 
 void gravity_queue_add_work(std::uint64_t id, std::shared_ptr<std::vector<_4force>> f, std::shared_ptr<std::vector<part_pos>> x, std::vector<tree_ptr> &&y,
 		std::vector<const multi_src*> &&z, std::function<void(void)> &&callback, bool do_phi) {
@@ -77,7 +54,6 @@ void gravity_queue_add_work(std::uint64_t id, std::shared_ptr<std::vector<_4forc
 	entry->units.push_back(std::move(subunit));
 	assert(entry->members_in <= entry->member_count);
 	if (entry->members_in == entry->member_count) {
-//		auto func = hpx::async([entry, do_phi]() {
 		auto unit = std::move(*entry);
 		std::unordered_set<tree_ptr, tree_ptr_hash> part_requests;
 		for (int i = 0; i < unit.units.size(); i++) {
@@ -132,10 +108,6 @@ void gravity_queue_add_work(std::uint64_t id, std::shared_ptr<std::vector<_4forc
 			u.callback();
 		}
 
-//		});
-//		func.get();
-//		std::lock_guard < mutex_type > lock(fut_mtx);
-//		futures.push_back(std::move(func));
 	}
 }
 

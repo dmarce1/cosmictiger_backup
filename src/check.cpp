@@ -36,15 +36,12 @@ hpx::future<std::vector<check_item>> get_next_checklist(std::vector<check_item> 
 	std::vector<check_item> next;
 	std::unordered_map<int, std::vector<tree_ptr>> get_list;
 	std::vector<tree_ptr> wait_list;
-	int i = 0;
-	std::size_t size = 0;
-	while (i < old.size()) {
+	next.reserve(NCHILD * old.size());
+	for (int i = 0; i < old.size(); i++) {
 		assert(old[i].opened == false);
 		if (old[i].info->leaf) {
 			old[i].opened = true;
 			next.push_back(old[i]);
-			old[i] = old.back();
-			old.pop_back();
 		} else {
 			const auto id = old[i].info->node;
 			if (id.rank == hpx::get_locality_id()) {
@@ -55,7 +52,6 @@ hpx::future<std::vector<check_item>> get_next_checklist(std::vector<check_item> 
 				const int index = gen_index(id);
 				std::lock_guard<mutex_type> lock(cache_mutex[index]);
 				if (cache[index].find(id) == cache[index].end()) {
-					//		printf( "---- %i\n", id.rank);
 					get_list[id.rank].push_back(id);
 					cache[index][id].ready = false;
 				} else {
@@ -68,10 +64,8 @@ hpx::future<std::vector<check_item>> get_next_checklist(std::vector<check_item> 
 					}
 				}
 			}
-			i++;
 		}
 	}
-//	printf( "%i %i\n", get_list.size(), wait_list.size());
 	if (get_list.size() || wait_list.size()) {
 		return hpx::async([](decltype(old) old, decltype(next) next, decltype(get_list) get_list, decltype(wait_list) wait_list) {
 			std::vector < hpx::future<std::vector<check_pair>> > futs;
@@ -108,7 +102,6 @@ hpx::future<std::vector<check_item>> get_next_checklist(std::vector<check_item> 
 						done = true;
 					} else {
 						lock.unlock();
-						//			printf( "Waiting\n");
 						hpx::this_thread::yield();
 					}
 				} while (!done);
@@ -119,7 +112,6 @@ hpx::future<std::vector<check_item>> get_next_checklist(std::vector<check_item> 
 		return hpx::make_ready_future(std::move(next));
 	}
 }
-
 
 void* check_allocate(std::size_t size) {
 	auto *ptr = malloc(size);
