@@ -22,6 +22,8 @@ double cuda_reset_flop();
 
 #include <cosmictiger/gravity.hpp>
 
+#include <memory>
+
 #define SYNCRATE 10
 
 struct cuda_ewald_const {
@@ -32,11 +34,10 @@ struct cuda_ewald_const {
 };
 
 struct cuda_work_unit {
-	std::vector<vect<position>> y;
 	std::vector<std::pair<int, int>> yiters;
 	std::vector<const multi_src*> z;
-	std::vector<vect<position>> *xptr;
-	std::vector<_4force> *fptr;
+	std::shared_ptr<std::vector<vect<position>>> xptr;
+	std::shared_ptr<std::vector<_4force>> fptr;
 };
 
 

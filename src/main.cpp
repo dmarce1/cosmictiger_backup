@@ -52,7 +52,7 @@ void solve_gravity(tree_client root, double theta, int min_rung, bool stats) {
 int hpx_main(int argc, char *argv[]) {
 	opts.process_options(argc, argv);
 	printf("Creating root node\n");
-	set_params(0.4, 0, false);
+	set_params(1.0, 0, false);
 	range root_box;
 	for (int dim = 0; dim < NDIM; dim++) {
 		root_box.min[dim] = 0.0;
@@ -96,7 +96,7 @@ int hpx_main(int argc, char *argv[]) {
 	printf("tree_stats %li %li %li\n", tstat.nmig, tstat.nnode, tstat.nleaf);
 	printf("Data loaded and distributed in %e seconds\n", timer() - ts);
 
-	solve_gravity(root, 0.5, 0, false);
+	solve_gravity(root, 0.4, 0, false);
 	printf("Multipoles took %e seconds\n", multipole_time);
 	printf("FMM took %e seconds\n", fmm_time);
 

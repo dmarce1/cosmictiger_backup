@@ -4,6 +4,7 @@
 #include <cosmictiger/tree_dir.hpp>
 #include <cosmictiger/gravity.hpp>
 #include <cosmictiger/gravity_queue.hpp>
+#include <cosmictiger/pos_cache.hpp>
 
 #include <atomic>
 #include <stack>
@@ -547,9 +548,9 @@ int tree::kick_fmm(int stack_cnt, std::vector<check_item> &&dchecks, std::vector
 	std::vector<check_item> next_echecks;
 	std::vector<tree_ptr> PP_list;
 	std::vector<tree_ptr> CP_list;
-	std::vector<multi_src*> PC_list;
-	std::vector<multi_src*> CC_list;
-	std::vector<multi_src*> ewald_list;
+	std::vector<const multi_src*> PC_list;
+	std::vector<const multi_src*> CC_list;
+	std::vector<const multi_src*> ewald_list;
 	const auto xcom = pos_to_double(tptr->multi.x);
 //	printf( "kick_fmm %li %li\n", dchecks.size(), echecks.size());
 	if (tptr->nactive > 0) {
@@ -582,8 +583,17 @@ int tree::kick_fmm(int stack_cnt, std::vector<check_item> &&dchecks, std::vector
 		}
 		auto dchecks_fut = get_next_checklist(std::move(next_dchecks));
 		auto echecks_fut = get_next_checklist(std::move(next_echecks));
+		auto cp_ptrs = ::get_positions(CP_list);
+		static thread_local std::vector<part_pos> cp;
+		cp.resize(0);
+		for (int i = 0; i < cp_ptrs.size(); i++) {
+			const auto &this_x = *cp_ptrs[i];
+			cp.insert(cp.end(), this_x.begin(), this_x.end());
+		}
 
-		// DO GRAVITY //
+		gravity_CC_direct(L.l, L.x, CC_list, fmm.stats);
+		gravity_CC_ewald(L.l, L.x, ewald_list, fmm.stats);
+		gravity_CP_direct(L.l, L.x, cp, fmm.stats);
 
 		dchecks = dchecks_fut.get();
 		echecks = echecks_fut.get();
@@ -622,7 +632,7 @@ int tree::kick_fmm(int stack_cnt, std::vector<check_item> &&dchecks, std::vector
 			}
 			gravity_queue_add_work(tptr->work_id, f, x, std::move(PP_list), std::move(PC_list), []() {
 
-			});
+			}, fmm.stats);
 
 		} else {
 			auto futl = tptr->children[0].kick_fmm(stack_cnt, true, dchecks, echecks, L);
