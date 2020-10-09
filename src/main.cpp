@@ -5,7 +5,7 @@
 #include <cosmictiger/timer.hpp>
 #include <cosmictiger/tree.hpp>
 #include <cosmictiger/fileio.hpp>
-
+#include <cosmictiger/output.hpp>
 
 #include <ctime>
 
@@ -52,7 +52,7 @@ void solve_gravity(tree_client root, double theta, int min_rung, bool stats) {
 int hpx_main(int argc, char *argv[]) {
 	opts.process_options(argc, argv);
 	printf("Creating root node\n");
-	set_params(1.0, 0, false);
+	set_params(0.7, 0, false);
 	range root_box;
 	for (int dim = 0; dim < NDIM; dim++) {
 		root_box.min[dim] = 0.0;
@@ -96,36 +96,38 @@ int hpx_main(int argc, char *argv[]) {
 	printf("tree_stats %li %li %li\n", tstat.nmig, tstat.nnode, tstat.nleaf);
 	printf("Data loaded and distributed in %e seconds\n", timer() - ts);
 
-	solve_gravity(root, 0.4, 0, false);
+	solve_gravity(root, 0.7, 0, true);
 	printf("Multipoles took %e seconds\n", multipole_time);
 	printf("FMM took %e seconds\n", fmm_time);
+	output_to_file("parts");
 
-	int rc = root.verify(0, false).get();
-	if (rc) {
-		printf("%s\n", tree_verification_error(rc).c_str());
-	}
+	//
+//	int rc = root.verify(0, false).get();
+//	if (rc) {
+//		printf("%s\n", tree_verification_error(rc).c_str());
+//	}
 
 //
-//	double btime = 0.0;
-	for (int step = 0; step < 10; step++) {
-		auto dtime = timer();
-		auto dr = root.drift(0, false, 0.009).get();
-		printf( "D: %e\n", timer() - dtime);
-		dtime = timer();
-//		int cnt = 0;
-		auto cnt = root.count_children().get();
-		printf( "C: %e\n", timer() - dtime);
-		dtime = timer();
-		root.compute_multipoles(0, false, -1, std::move(dr.parts), 0);
-		printf( "M: %e\n", timer() - dtime);
-		dtime = timer();
-//		int rc = root.verify(0, false).get();
-//		if (rc) {
-//			printf("%s\n", tree_verification_error(rc).c_str());
-//		}
-		printf("Drift takes %e seconds %i\n", timer() - dtime, cnt);
-	}
-//	printf("%e\n", btime);
+////	double btime = 0.0;
+//	for (int step = 0; step < 10; step++) {
+//		auto dtime = timer();
+//		auto dr = root.drift(0, false, 0.009).get();
+//		printf( "D: %e\n", timer() - dtime);
+//		dtime = timer();
+////		int cnt = 0;
+//		auto cnt = root.count_children().get();
+//		printf( "C: %e\n", timer() - dtime);
+//		dtime = timer();
+//		root.compute_multipoles(0, false, -1, std::move(dr.parts), 0);
+//		printf( "M: %e\n", timer() - dtime);
+//		dtime = timer();
+////		int rc = root.verify(0, false).get();
+////		if (rc) {
+////			printf("%s\n", tree_verification_error(rc).c_str());
+////		}
+//		printf("Drift takes %e seconds %i\n", timer() - dtime, cnt);
+//	}
+////	printf("%e\n", btime);
 	printf("Destroying tree\n");
 	root.destroy(0).get();
 	printf("exiting\n");

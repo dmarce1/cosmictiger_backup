@@ -32,7 +32,7 @@ std::vector<check_pair> get_check_pair_remote(const std::vector<tree_ptr> &ids) 
 
 HPX_PLAIN_ACTION (get_check_pair_remote);
 
-hpx::future<std::vector<check_item>> get_next_checklist(std::vector<check_item> &&old) {
+hpx::future<std::vector<check_item>> get_next_checklist(const std::vector<check_item> &old) {
 	std::vector<check_item> next;
 	std::unordered_map<int, std::vector<tree_ptr>> get_list;
 	std::vector<tree_ptr> wait_list;
@@ -40,8 +40,9 @@ hpx::future<std::vector<check_item>> get_next_checklist(std::vector<check_item> 
 	for (int i = 0; i < old.size(); i++) {
 		assert(old[i].opened == false);
 		if (old[i].info->leaf) {
-			old[i].opened = true;
-			next.push_back(old[i]);
+			auto j = old[i];
+			j.opened = true;
+			next.push_back(j);
 		} else {
 			const auto id = old[i].info->node;
 			if (id.rank == hpx::get_locality_id()) {
@@ -67,7 +68,7 @@ hpx::future<std::vector<check_item>> get_next_checklist(std::vector<check_item> 
 		}
 	}
 	if (get_list.size() || wait_list.size()) {
-		return hpx::async([](decltype(old) old, decltype(next) next, decltype(get_list) get_list, decltype(wait_list) wait_list) {
+		return hpx::async([](decltype(next) next, decltype(get_list) get_list, decltype(wait_list) wait_list) {
 			std::vector < hpx::future<std::vector<check_pair>> > futs;
 			for (auto &get : get_list) {
 				//			printf( "futspushback %i\n", get.first);
@@ -107,7 +108,7 @@ hpx::future<std::vector<check_item>> get_next_checklist(std::vector<check_item> 
 				} while (!done);
 			}
 			return std::move(next);
-		},std::move(old), std::move(next), std::move(get_list), std::move(wait_list));
+		}, std::move(next), std::move(get_list), std::move(wait_list));
 	} else {
 		return hpx::make_ready_future(std::move(next));
 	}

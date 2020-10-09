@@ -5,6 +5,7 @@
 #include <cosmictiger/gravity.hpp>
 #include <cosmictiger/gravity_queue.hpp>
 #include <cosmictiger/pos_cache.hpp>
+#include <cosmictiger/output.hpp>
 
 #include <atomic>
 #include <stack>
@@ -216,6 +217,7 @@ multipole_return tree::compute_multipoles(int stack_cnt, std::uint64_t work_id, 
 	}
 	if (tptr->leaf) {
 		if (tptr->level < min_level || parts.size() + tptr->parts.size() > opts.bucket_size) {
+			printf( "*********\n");
 			create_children();
 		} else {
 			if (tptr->parts.size() == 0) {
@@ -229,6 +231,7 @@ multipole_return tree::compute_multipoles(int stack_cnt, std::uint64_t work_id, 
 	} else if (tptr->level > min_level) {
 		const auto sz = parts.size() + tptr->parts.size() + tptr->child_cnt[0] + tptr->child_cnt[1];
 		if (sz <= opts.bucket_size) {
+			printf( "----------\n");
 			for (auto i = parts.begin(); i != parts.end(); i++) {
 				tptr->parts.insert(*i);
 			}
@@ -246,7 +249,7 @@ multipole_return tree::compute_multipoles(int stack_cnt, std::uint64_t work_id, 
 		if (tptr->parts.size()) {
 			for (auto i = tptr->parts.begin(); i != tptr->parts.end(); i++) {
 				const auto x = pos_to_double(i->x);
-				if (i->rung >= fmm.min_rung) {
+				if (fmm.stats || (i->rung >= fmm.min_rung)) {
 					nactive++;
 				}
 				for (int dim = 0; dim < NDIM; dim++) {
@@ -482,7 +485,13 @@ std::uint64_t tree::grow(int stack_cnt, bucket &&parts, bool first_pass) {
 		auto futr = tptr->children[1].grow(stack_cnt, false, std::move(parts_right), first_pass);
 		tptr->child_cnt[0] = futl.get();
 		tptr->child_cnt[1] = futr.get();
+	} else {
+		tptr->child_cnt[0] = 0;
+		tptr->child_cnt[1] = 0;
 	}
+//	if( tptr->child_cnt[0] > opts.problem_size) {
+//		printf( "--------%li %i\n",tptr->child_cnt[1], tptr->leaf);
+//	}
 	return size();
 }
 
@@ -542,9 +551,6 @@ std::vector<int> tree::checks_far(const std::vector<check_item> &checks, bool ew
 	return res;
 }
 
-
-
-
 int tree::kick_fmm(int stack_cnt, std::vector<check_item> &&dchecks, std::vector<check_item> &&echecks, expansion_src &&L) {
 
 	std::vector<check_item> next_dchecks;
@@ -585,8 +591,8 @@ int tree::kick_fmm(int stack_cnt, std::vector<check_item> &&dchecks, std::vector
 				next_echecks.push_back(echecks[i]);
 			}
 		}
-		auto dchecks_fut = get_next_checklist(std::move(next_dchecks));
-		auto echecks_fut = get_next_checklist(std::move(next_echecks));
+		auto dchecks_fut = get_next_checklist(next_dchecks);
+		auto echecks_fut = get_next_checklist(next_echecks);
 		auto cp_ptrs = ::get_positions(CP_list);
 		static thread_local std::vector<part_pos> cp;
 		cp.resize(0);
@@ -603,7 +609,6 @@ int tree::kick_fmm(int stack_cnt, std::vector<check_item> &&dchecks, std::vector
 		echecks = echecks_fut.get();
 		if (tptr->leaf) {
 			while (dchecks.size()) {
-				next_dchecks.reserve(dchecks.size());
 				next_dchecks.resize(0);
 				const auto far = checks_far(dchecks, false);
 				for (int i = 0; i < dchecks.size(); i++) {
@@ -619,7 +624,7 @@ int tree::kick_fmm(int stack_cnt, std::vector<check_item> &&dchecks, std::vector
 						}
 					}
 				}
-				dchecks_fut = get_next_checklist(std::move(next_dchecks));
+				dchecks_fut = get_next_checklist(next_dchecks);
 				dchecks = dchecks_fut.get();
 			}
 			auto x = std::make_shared<std::vector<part_pos>>();
@@ -635,8 +640,16 @@ int tree::kick_fmm(int stack_cnt, std::vector<check_item> &&dchecks, std::vector
 				(*f)[i].phi = this_f.phi;
 				(*f)[i].g = this_f.g;
 			}
-			gravity_queue_add_work(tptr->work_id, f, x, std::move(PP_list), std::move(PC_list), []() {
-
+			gravity_queue_add_work(tptr->work_id, f, x, std::move(PP_list), std::move(PC_list), [f, x, this]() {
+				if (fmm.stats) {
+					int j = 0;
+					for (auto i = tptr->parts.begin(); i != tptr->parts.end(); i++) {
+						if (i->out) {
+							output_add_particle(*i, (*f)[j]);
+						}
+						j++;
+					}
+				}
 			}, fmm.stats);
 
 		} else {
@@ -659,6 +672,8 @@ std::uint64_t tree::local_load_balance(std::uint64_t index, std::uint64_t total)
 	if (child_level > min_level) {
 		il = index * std::uint64_t(localities.size()) / total;
 		ir = (index + tptr->child_cnt[0]) * std::uint64_t(localities.size()) / total;
+		if( ir > localities.size())
+		printf( "%li %li %li %li %li\n", index, tptr->child_cnt[0], tptr->child_cnt[1], tptr->leaf, total);
 		assert(il >= 0);
 		assert(il < localities.size());
 		assert(ir >= 0);

@@ -37,6 +37,7 @@ std::vector<output_part> gather_output() {
 
 void output_to_file(const std::string&) {
 	auto parts = gather_output();
+	printf( "%li\n", parts.size());
 
 
 
