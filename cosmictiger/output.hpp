@@ -12,6 +12,7 @@ struct output_part {
 	vect<float> g;
 	float phi;
 	int rung;
+	std::uint64_t group_id;
 	template<class A>
 	void serialize(A &&arc, unsigned) {
 		arc & x;

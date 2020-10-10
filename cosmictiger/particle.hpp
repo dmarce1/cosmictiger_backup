@@ -17,8 +17,7 @@ struct particle {
 	struct {
 		std::uint64_t rung :7;
 		std::uint64_t out :1;
-		std::uint64_t step:1;
-		std::uint64_t group :55;
+		std::uint64_t group :56;
 	};
 	template<class A>
 	void serialize(A &&arc, unsigned) {
@@ -29,9 +28,6 @@ struct particle {
 		tmp1 = rung;
 		arc & tmp1;
 		rung = tmp1;
-		tmp1 = step;
-		arc & tmp1;
-		step = tmp1;
 		tmp1 = out;
 		arc & tmp1;
 		out = tmp1;
@@ -40,5 +36,7 @@ struct particle {
 		group = tmp2;
 	}
 };
+
+#define DEFAULT_GROUP 0
 
 #endif /* COSMICTIGER_PARTICLE_HPP_ */

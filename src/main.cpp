@@ -99,7 +99,7 @@ int hpx_main(int argc, char *argv[]) {
 	solve_gravity(root, 0.7, 0, true);
 	printf("Multipoles took %e seconds\n", multipole_time);
 	printf("FMM took %e seconds\n", fmm_time);
-	output_to_file("parts");
+	output_to_file("parts.silo");
 
 	//
 //	int rc = root.verify(0, false).get();

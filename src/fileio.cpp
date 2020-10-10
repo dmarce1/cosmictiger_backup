@@ -106,10 +106,8 @@ void fileio_init_read() {
 		part.x[2] = z;
 		part.rung = 0;
 		part.out = 1;
-		part.step = 0;
 		part.group = 0;
 		parts.insert(part);
-//		printf( "%e\n", x);
 	}
 	FREAD_ASSERT(fread(&dummy, sizeof(dummy), 1, fp));
 	FREAD_ASSERT(fread(&dummy, sizeof(dummy), 1, fp));

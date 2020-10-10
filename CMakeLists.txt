@@ -24,8 +24,8 @@ find_package(Boost REQUIRED)
 enable_language(CUDA)
 
 
-#set(CMAKE_CXX_FLAGS "-Wno-pointer-arith -isystem /home/dmarce1/local/boost/include -DBOOST_ALL_NO_LIB -DBOOST_DISABLE_ASSERTS -O3 -std=c++17 -DNDEBUG -ffast-math -march=native")
-set(CMAKE_CXX_FLAGS "-isystem /home/dmarce1/local/boost/include -DBOOST_ALL_NO_LIB -DBOOST_DISABLE_ASSERTS -g -std=c++17 -ffast-math -march=native")
+set(CMAKE_CXX_FLAGS "-Wno-pointer-arith -isystem /home/dmarce1/local/boost/include -DBOOST_ALL_NO_LIB -DBOOST_DISABLE_ASSERTS -O3 -std=c++17 -DNDEBUG -ffast-math -march=native")
+#set(CMAKE_CXX_FLAGS "-isystem /home/dmarce1/local/boost/include -DBOOST_ALL_NO_LIB -DBOOST_DISABLE_ASSERTS -g -std=c++17 -ffast-math -march=native")
 
 set(cosmictiger_source_files
 	src/bucket.cpp

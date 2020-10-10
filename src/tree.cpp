@@ -265,12 +265,12 @@ multipole_return tree::compute_multipoles(int stack_cnt, std::uint64_t work_id, 
 				M() += m;
 				for (int n = 0; n < NDIM; n++) {
 					const auto dxn = x[n] - xc[n];
-					for (int m = 0; m <= n; m++) {
-						const auto dxm = x[m] - xc[n];
-						M(n, m) += dxn * dxm * m;
+					for (int p = 0; p <= n; p++) {
+						const auto dxp = x[p] - xc[n];
+						M(n, p) += dxn * dxp * m;
 						for (int l = 0; l <= m; l++) {
 							const auto dxl = x[l] - xc[n];
-							M(n, m, l) -= dxn * dxm * dxl * m;
+							M(n, p, l) -= dxn * dxp * dxl * m;
 						}
 					}
 				}
@@ -643,6 +643,9 @@ int tree::kick_fmm(int stack_cnt, std::vector<check_item> &&dchecks, std::vector
 			gravity_queue_add_work(tptr->work_id, f, x, std::move(PP_list), std::move(PC_list), [f, x, this]() {
 				if (fmm.stats) {
 					int j = 0;
+					for( auto i = f->begin(); i != f->end(); i++) {
+						i->phi += SELF_PHI * opts.particle_mass;
+					}
 					for (auto i = tptr->parts.begin(); i != tptr->parts.end(); i++) {
 						if (i->out) {
 							output_add_particle(*i, (*f)[j]);
@@ -672,8 +675,6 @@ std::uint64_t tree::local_load_balance(std::uint64_t index, std::uint64_t total)
 	if (child_level > min_level) {
 		il = index * std::uint64_t(localities.size()) / total;
 		ir = (index + tptr->child_cnt[0]) * std::uint64_t(localities.size()) / total;
-		if( ir > localities.size())
-		printf( "%li %li %li %li %li\n", index, tptr->child_cnt[0], tptr->child_cnt[1], tptr->leaf, total);
 		assert(il >= 0);
 		assert(il < localities.size());
 		assert(ir >= 0);
@@ -778,7 +779,6 @@ drift_return tree::drift(int stack_cnt, float dt) {
 			const auto v = i->v * 400.0;
 			x += v * dt;
 			i->x = double_to_pos(x);
-			i->step++;
 			if (!in_range(pos_to_double(i->x), tptr->box)) {
 				exit_parts.insert(*i);
 				i = tptr->parts.remove(i);
