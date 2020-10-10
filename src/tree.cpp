@@ -217,7 +217,6 @@ multipole_return tree::compute_multipoles(int stack_cnt, std::uint64_t work_id, 
 	}
 	if (tptr->leaf) {
 		if (tptr->level < min_level || parts.size() + tptr->parts.size() > opts.bucket_size) {
-			printf( "*********\n");
 			create_children();
 		} else {
 			if (tptr->parts.size() == 0) {
@@ -231,7 +230,7 @@ multipole_return tree::compute_multipoles(int stack_cnt, std::uint64_t work_id, 
 	} else if (tptr->level > min_level) {
 		const auto sz = parts.size() + tptr->parts.size() + tptr->child_cnt[0] + tptr->child_cnt[1];
 		if (sz <= opts.bucket_size) {
-			printf( "----------\n");
+			printf("----------\n");
 			for (auto i = parts.begin(); i != parts.end(); i++) {
 				tptr->parts.insert(*i);
 			}
@@ -266,10 +265,10 @@ multipole_return tree::compute_multipoles(int stack_cnt, std::uint64_t work_id, 
 				for (int n = 0; n < NDIM; n++) {
 					const auto dxn = x[n] - xc[n];
 					for (int p = 0; p <= n; p++) {
-						const auto dxp = x[p] - xc[n];
+						const auto dxp = x[p] - xc[p];
 						M(n, p) += dxn * dxp * m;
-						for (int l = 0; l <= m; l++) {
-							const auto dxl = x[l] - xc[n];
+						for (int l = 0; l <= p; l++) {
+							const auto dxl = x[l] - xc[l];
 							M(n, p, l) -= dxn * dxp * dxl * m;
 						}
 					}
@@ -643,8 +642,8 @@ int tree::kick_fmm(int stack_cnt, std::vector<check_item> &&dchecks, std::vector
 			gravity_queue_add_work(tptr->work_id, f, x, std::move(PP_list), std::move(PC_list), [f, x, this]() {
 				if (fmm.stats) {
 					int j = 0;
-					for( auto i = f->begin(); i != f->end(); i++) {
-						i->phi += SELF_PHI * opts.particle_mass;
+					for (auto i = f->begin(); i != f->end(); i++) {
+						i->phi += SELF_PHI * opts.particle_mass / opts.h;
 					}
 					for (auto i = tptr->parts.begin(); i != tptr->parts.end(); i++) {
 						if (i->out) {
@@ -673,8 +672,8 @@ std::uint64_t tree::local_load_balance(std::uint64_t index, std::uint64_t total)
 	std::uint64_t il, ir;
 	const int child_level = tptr->level + 1;
 	if (child_level > min_level) {
-		il = index * std::uint64_t(localities.size()) / total;
-		ir = (index + tptr->child_cnt[0]) * std::uint64_t(localities.size()) / total;
+		il = index * std::uint64_t(localities.size()) / (total + 1);
+		ir = (index + tptr->child_cnt[0]) * std::uint64_t(localities.size()) / (total + 1);
 		assert(il >= 0);
 		assert(il < localities.size());
 		assert(ir >= 0);
@@ -701,7 +700,7 @@ std::uint64_t tree::local_load_balance(std::uint64_t index, std::uint64_t total)
 
 tree_stats tree::load_balance(int stack_cnt, std::uint64_t index, std::uint64_t total) {
 	tree_stats stats;
-	assert(index < total);
+	assert(index <= total);
 	if (!tptr->leaf) {
 		stats.nnode++;
 		stats.nmig = local_load_balance(index, total);

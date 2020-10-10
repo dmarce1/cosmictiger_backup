@@ -38,10 +38,9 @@ std::vector<output_part> gather_output() {
 	return std::move(parts);
 }
 
-void output_to_file(const std::string& filename) {
+void output_to_file(const std::string& filename, const std::vector<output_part>& parts) {
 
 	std::thread([&] {
-		auto parts = gather_output();
 		static const float m = opts.particle_mass;
 		std::array<std::vector<double>, NDIM> x;
 		std::array<std::vector<float>, NDIM> g;

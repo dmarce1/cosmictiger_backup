@@ -24,4 +24,5 @@ struct output_part {
 };
 
 void output_add_particle(const particle&, const _4force&);
-void output_to_file(const std::string&);
+void output_to_file(const std::string&, const std::vector<output_part>& parts);
+std::vector<output_part> gather_output();

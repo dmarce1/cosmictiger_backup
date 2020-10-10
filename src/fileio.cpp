@@ -69,6 +69,7 @@ void fileio_init_read() {
 		printf("Reading %li particles\n", total_parts);
 		printf("Z =             %e\n", header.redshift);
 		printf("particle mass = %e\n", header.mass[1]);
+		printf("hsoft =         %e\n", opts.h);
 		printf("Omega_m =       %e\n", header.Omega0);
 		printf("Omega_lambda =  %e\n", header.OmegaLambda);
 		printf("Hubble Param =  %e\n", header.HubbleParam);

@@ -46,5 +46,6 @@ class pinned_vector;
 
 void gravity_PP_direct_cuda(std::vector<cuda_work_unit>&&, const pinned_vector<vect<position>>&, bool do_phi);
 void gravity_CC_ewald_cuda(expansion<float> &L, const vect<position> &x, std::vector<const multi_src*> &y, bool do_phi);
+void gravity_ewald_direct(std::vector<_4force> &f, const std::vector<vect<double>> x, const std::vector<vect<double>> &y);
 
 #endif /* TIGERGRAV_GRAVITY_CUDA_HPP_ */

@@ -9,9 +9,6 @@
 #include <atomic>
 void yield_to_hpx();
 
-static bool first_call = true;
-static std::atomic<int> thread_cnt(0);
-
 __device__ __constant__ cuda_ewald_const cuda_ewald;
 
 __device__ const cuda_ewald_const& cuda_get_const() {
@@ -76,6 +73,150 @@ void cuda_init() {
 #define WARPSIZE 32
 
 #include <cstdint>
+
+#define TILESIZE 512
+
+__global__ void gravity_ewald_direct_kernel(_4force *f, vect<double> *x, vect<double> *y, int xsize, int ysize, float m, float h) {
+	const int i = threadIdx.x;
+	const auto &cuda_const = cuda_get_const();
+	const auto &four_indices = cuda_const.four_indices;
+	const auto &real_indices = cuda_const.real_indices;
+	const auto &hparts = cuda_const.periodic_parts;
+	const float fouroversqrtpi(4.0 / sqrt(M_PI));
+	static const float one(1.0);
+	static const float two(2.0);
+	static const float nfour(-4.0);
+	static const float a1(0.254829592);
+	static const float a2(-0.284496736);
+	static const float a3(1.421413741);
+	static const float a4(-1.453152027);
+	static const float a5(1.061405429);
+	static const float rcut(1.0e-6);
+	static const float twopi = 2.0 * M_PI;
+	static const float p(0.3275911);
+	const float hinv = 1.0 / h;
+	const float h3inv = hinv * hinv * hinv;
+
+	for (int j = 0; j < xsize; j += TILESIZE) {
+		const int k = j + i;
+		if (k < xsize) {
+			f[k].phi = m * SELF_PHI / h;
+			f[k].g = vect<float>(0.0);
+			for (int l = 0; l < ysize; l++) {
+				vect<float> X;
+				for (int dim = 0; dim < NDIM; dim++) {
+					const auto dx = x[k][dim] - y[l][dim];
+					X[dim] = float(copysign(min(abs(dx), 1.0 - abs(dx)), dx * (0.5 - abs(dx))));
+				}
+				const float r = abs(X);
+				if (r > h) {
+					_4force freal;
+					_4force ffour;
+					freal.g = ffour.g = vect<float>(0.0);
+					freal.phi = ffour.phi = 0.0;
+//					for (auto n : real_indices) {
+//						const vect<float> dx = X - vect<float>(n);				// 3
+//						const float r2 = dx.dot(dx);							// 5
+//						if (r2 < (EWALD_RADIUS_CUTOFF * EWALD_RADIUS_CUTOFF)) {	// 1
+//							const float r = sqrt(r2);					// 1
+//							const float cmask = one - (n.dot(n) > 0.0); // 7
+//							const float rinv = one / r;		// 2
+//							const float r2inv = rinv * rinv;			// 1
+//							const float r3inv = r2inv * rinv;			// 1
+//							const float t1 = float(1) / (float(1) + p * two * r); 	//4
+//							const float t2 = t1 * t1;								// 1
+//							const float t3 = t2 * t1;								// 1
+//							const float t4 = t2 * t2;								// 1
+//							const float t5 = t2 * t3;								// 1
+//							const float exp0 = expf(nfour * r2);					// 26
+//							const float erfc0 = (a1 * t1 + a2 * t2 + a3 * t3 + a4 * t4 + a5 * t5) * exp0; 			// 10
+//							const float expfactor = fouroversqrtpi * r * exp0; 	// 2
+//							const float e1 = expfactor * r3inv;						// 1
+//							const float d0 = -erfc0 * rinv;							// 2
+//							const float d1 = fma(-d0, r2inv, e1);					// 3
+//							freal.phi += d0;
+//							freal.g -= dx * d1;
+//						}
+//					}
+//					for (int n = 0; n < EWALD_NFOUR; n++) {
+//						const auto &h = four_indices[n];
+//						const auto &hpart = hparts[n];
+//						const float h2 = h.dot(h);
+//						const float hdotx = h.dot(X);
+//						float co;
+//						float so;
+//						sincosf(twopi * hdotx, &so, &co);
+//						ffour.phi += hpart() * co;
+//						for (int dim = 0; dim < NDIM; dim++) {
+//							ffour.g[dim] -= hpart(dim) * so;
+//						}
+//					}
+					f[k].phi -= m / r;
+					f[k].g -= X * m / (r * r * r);
+//					f[k].phi += (ffour.phi + freal.phi) * m;
+					//					f[k].g += (ffour.g + freal.g) * m;
+				} else {
+					const float rinv = 1.0 / r;
+					const float rinv3 = rinv * rinv;
+					float p, f0;
+					if (r > 0.5 * h) {
+						const float roh = min(r * hinv, 1.0);                         // 2
+						const float roh2 = roh * roh;                         // 1
+						const float roh3 = roh2 * roh;                         // 1
+						f0 = float(-32.0 / 3.0);
+						f0 = fma(f0, roh, float(+192.0 / 5.0));                         // 2
+						f0 = fma(f0, roh, float(-48.0));                         // 2
+						f0 = fma(f0, roh, float(+64.0 / 3.0));                         // 2
+						f0 = fma(f0, roh3, float(-1.0 / 15.0));                         // 2
+						f0 *= rinv3;                         // 1
+						p = float(+32.0 / 15.0);
+						p = fma(p, roh, float(-48.0 / 5.0));                                 // 2
+						p = fma(p, roh, float(+16.0));                                 // 2
+						p = fma(p, roh, float(-32.0 / 3.0));                                 // 2
+						p = fma(p, roh2, float(+16.0 / 5.0));                                 // 2
+						p = fma(p, roh, float(-1.0 / 15.0));                                 // 2
+						p *= rinv;                                 // 1
+					} else {
+						const float roh = min(r * hinv, 1.0);                           // 2
+						const float roh2 = roh * roh;                           // 1
+						f0 = float(+32.0);
+						f0 = fma(f0, roh, float(-192.0 / 5.0));                           // 2
+						f0 = fma(f0, roh2, float(+32.0 / 3.0));                           // 2
+						f0 *= h3inv;                           // 1
+						p = float(-32.0 / 5.0);
+						p = fma(p, roh, float(+48.0 / 5.0));							// 2
+						p = fma(p, roh2, float(-16.0 / 3.0));							// 2
+						p = fma(p, roh2, float(+14.0 / 5.0));							// 2
+						p *= hinv;							// 1
+					}
+					const auto dXM = X * m;								// 3
+					f[k].g -= dXM * f0;
+					f[k].phi -= p * m;
+				}
+			}
+		}
+	}
+}
+
+void gravity_ewald_direct(std::vector<_4force> &f, const std::vector<vect<double>> x, const std::vector<vect<double>> &y) {
+	_4force *fdev;
+	vect<double> *xdev;
+	vect<double> *ydev;
+	const auto xbytes = x.size() * sizeof(vect<double> );
+	const auto ybytes = y.size() * sizeof(vect<double> );
+	const auto fbytes = f.size() * sizeof(_4force);
+	CUDA_CHECK(cudaMalloc((void** ) &fdev, fbytes));
+	CUDA_CHECK(cudaMalloc((void** ) &xdev, xbytes));
+	CUDA_CHECK(cudaMalloc((void** ) &ydev, ybytes));
+	CUDA_CHECK(cudaMemcpy(xdev, x.data(), xbytes, cudaMemcpyHostToDevice));
+	CUDA_CHECK(cudaMemcpy(ydev, y.data(), ybytes, cudaMemcpyHostToDevice));
+	/**/gravity_ewald_direct_kernel<<<1,TILESIZE>>>(fdev, xdev, ydev, x.size(), y.size(), opts.particle_mass, opts.h);
+
+	CUDA_CHECK(cudaMemcpy(f.data(), fdev, fbytes, cudaMemcpyDeviceToHost));
+	CUDA_CHECK(cudaFree(fdev));
+	CUDA_CHECK(cudaFree(xdev));
+	CUDA_CHECK(cudaFree(ydev));
+}
 
 __global__ void CC_ewald_kernel(expansion<float> *lptr, const vect<position> X, const multi_src *y, int ysize, bool do_phi, double *flop_ptr) {
 
