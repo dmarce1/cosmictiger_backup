@@ -6,23 +6,27 @@
 
 class options {
 public:
+	bool ewald;
 	int bucket_size;
 	double code_to_cm;
 	double particle_mass;
 	double soft_len;
 	double h;
+	double theta;
 	std::uint64_t problem_size;
 	std::string input_file;
 	std::string config_file;
 
 	template<class Arc>
 	void serialize(Arc &arc, unsigned) {
+		arc & ewald;
 		arc & h;
 		arc & code_to_cm;
 		arc & bucket_size;
 		arc & input_file;
 		arc & particle_mass;
 		arc & config_file;
+		arc & theta;
 	}
 
 	static void set(options);

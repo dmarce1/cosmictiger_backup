@@ -106,7 +106,7 @@ __global__ void gravity_ewald_direct_kernel(_4force *f, vect<double> *x, vect<do
 				vect<float> X;
 				for (int dim = 0; dim < NDIM; dim++) {
 					const auto dx = x[k][dim] - y[l][dim];
-					X[dim] = float(copysign(min(abs(dx), 1.0 - abs(dx)), dx * (0.5 - abs(dx))));
+					X[dim] = float(copysign(min(abs(dx),double(1.0) - abs(dx)), dx * (double(0.5) - abs(dx))));
 				}
 				const float r = abs(X);
 				if (r > h) {

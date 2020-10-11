@@ -10,6 +10,6 @@
 
 #include <cosmictiger/output.hpp>
 
-std::pair<double, double> compute_error(const std::vector<output_part>&);
+std::pair<double, double> compute_error( std::vector<output_part>&);
 
 #endif /* COSMICTIGER_ERROR_HPP_ */

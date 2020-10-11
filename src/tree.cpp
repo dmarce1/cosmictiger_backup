@@ -71,25 +71,29 @@ tree_client tree_allocate(tree node) {
 HPX_PLAIN_ACTION (tree_allocate);
 
 int tree_ewald_min_level(double theta, double h) {
-	int lev = 12;
-	while (1) {
-		int N = 1 << (lev / NDIM);
-		double dx = 0.25 * N;
-		double a;
-		if (lev % NDIM == 0) {
-			a = std::sqrt(3);
-		} else if (lev % NDIM == 1) {
-			a = 1.5;
-		} else {
-			a = std::sqrt(1.5);
+	if (opts.ewald) {
+		int lev = 12;
+		while (1) {
+			int N = 1 << (lev / NDIM);
+			double dx = 0.25 * N;
+			double a;
+			if (lev % NDIM == 0) {
+				a = std::sqrt(3);
+			} else if (lev % NDIM == 1) {
+				a = 1.5;
+			} else {
+				a = std::sqrt(1.5);
+			}
+			double r = 2 * (a + h * N) / theta;
+			if (dx > r) {
+				break;
+			}
+			lev++;
 		}
-		double r = 2 * (a + h * N) / theta;
-		if (dx > r) {
-			break;
-		}
-		lev++;
+		return lev;
+	} else {
+		return 0;
 	}
-	return lev;
 }
 
 void tree_insert_parts(bucket &&parts) {
@@ -230,11 +234,11 @@ multipole_return tree::compute_multipoles(int stack_cnt, std::uint64_t work_id, 
 	} else if (tptr->level > min_level) {
 		const auto sz = parts.size() + tptr->parts.size() + tptr->child_cnt[0] + tptr->child_cnt[1];
 		if (sz <= opts.bucket_size) {
-			printf("----------\n");
 			for (auto i = parts.begin(); i != parts.end(); i++) {
 				tptr->parts.insert(*i);
 			}
 			auto tmp = get_parts();
+
 			tptr->parts = std::move(tmp);
 			tptr->children[0] = tree_client();
 			tptr->children[1] = tree_client();
@@ -345,6 +349,7 @@ multipole_return tree::compute_multipoles(int stack_cnt, std::uint64_t work_id, 
 	}
 	tptr->multi.m = M;
 	tptr->multi.x = double_to_pos(xc);
+	assert(in_range(pos_to_double(tptr->multi.x), tptr->box));
 	tptr->multi.r = r;
 	tptr->nactive = nactive;
 	tptr->work_id = work_id;
@@ -515,7 +520,10 @@ bucket tree::get_parts() {
 std::vector<int> tree::checks_far(const std::vector<check_item> &checks, bool ewald) {
 	static const float h = opts.h;
 	const simd_float R1 = tptr->multi.r + float(2) * h;
-	const vect<simd_int> X1 = tptr->multi.x;
+	vect<simd_int> X1;
+	for (int dim = 0; dim < NDIM; dim++) {
+		X1[dim] = (int) tptr->multi.x[dim];
+	}
 	const simd_float Thetainv = 1.0 / fmm.theta;
 	const int simd_size = (checks.size() - 1) / simd_float::size() + 1;
 	std::vector<simd_float> R2(simd_size);
@@ -551,6 +559,7 @@ std::vector<int> tree::checks_far(const std::vector<check_item> &checks, bool ew
 }
 
 int tree::kick_fmm(int stack_cnt, std::vector<check_item> &&dchecks, std::vector<check_item> &&echecks, expansion_src &&L) {
+	static std::atomic<int> cnt(0);
 
 	std::vector<check_item> next_dchecks;
 	std::vector<check_item> next_echecks;
@@ -579,19 +588,25 @@ int tree::kick_fmm(int stack_cnt, std::vector<check_item> &&dchecks, std::vector
 				next_dchecks.push_back(dchecks[i]);
 			}
 		}
-		far = checks_far(echecks, true);
-		for (int i = 0; i < echecks.size(); i++) {
-			const auto &pos = echecks[i].info->node;
-			const auto &mpole = echecks[i].info->multi;
-			if (far[i]) {
-				assert(!dchecks[i].opened);
-				ewald_list.push_back(mpole);
-			} else {
-				next_echecks.push_back(echecks[i]);
+		if (opts.ewald) {
+			far = checks_far(echecks, true);
+			for (int i = 0; i < echecks.size(); i++) {
+				const auto &pos = echecks[i].info->node;
+				const auto &mpole = echecks[i].info->multi;
+				if (far[i]) {
+					assert(!echecks[i].opened);
+					ewald_list.push_back(mpole);
+				} else {
+					next_echecks.push_back(echecks[i]);
+				}
 			}
 		}
-		auto dchecks_fut = get_next_checklist(next_dchecks);
-		auto echecks_fut = get_next_checklist(next_echecks);
+
+		hpx::future<std::vector<check_item>> echecks_fut, dchecks_fut;
+		dchecks_fut = get_next_checklist(next_dchecks);
+		if (opts.ewald) {
+			echecks_fut = get_next_checklist(next_echecks);
+		}
 		auto cp_ptrs = ::get_positions(CP_list);
 		static thread_local std::vector<part_pos> cp;
 		cp.resize(0);
@@ -599,13 +614,18 @@ int tree::kick_fmm(int stack_cnt, std::vector<check_item> &&dchecks, std::vector
 			const auto &this_x = *cp_ptrs[i];
 			cp.insert(cp.end(), this_x.begin(), this_x.end());
 		}
+		cnt += cp.size();
 
-		gravity_CC_direct(L.l, L.x, CC_list, fmm.stats);
-		gravity_CC_ewald(L.l, L.x, ewald_list, fmm.stats);
-		gravity_CP_direct(L.l, L.x, cp, fmm.stats);
+//		gravity_CC_direct(L.l, tptr->multi.x, CC_list, fmm.stats);
+		gravity_CP_direct(L.l, tptr->multi.x, cp, fmm.stats);
+		if (opts.ewald) {
+//			gravity_CC_ewald(L.l, tptr->multi.x, ewald_list, fmm.stats);
+		}
 
 		dchecks = dchecks_fut.get();
-		echecks = echecks_fut.get();
+		if (opts.ewald) {
+			echecks = echecks_fut.get();
+		}
 		if (tptr->leaf) {
 			while (dchecks.size()) {
 				next_dchecks.resize(0);
@@ -614,10 +634,10 @@ int tree::kick_fmm(int stack_cnt, std::vector<check_item> &&dchecks, std::vector
 					const auto &pos = dchecks[i].info->node;
 					const auto &mpole = dchecks[i].info->multi;
 					if (dchecks[i].opened) {
-						PP_list.push_back(pos);
+//						PP_list.push_back(pos);
 					} else {
 						if (far[i]) {
-							PC_list.push_back(mpole);
+							//						PC_list.push_back(mpole);
 						} else {
 							next_dchecks.push_back(dchecks[i]);
 						}
@@ -635,16 +655,16 @@ int tree::kick_fmm(int stack_cnt, std::vector<check_item> &&dchecks, std::vector
 			auto f = std::make_shared < std::vector < _4force >> (x->size());
 			for (auto i = 0; i != x->size(); i++) {
 				_4force this_f;
-				L.l.translate_L2(this_f.g, this_f.phi, vect<float>(pos_to_double((*x)[i]) - xcom));
+				L.l.translate_L2(this_f.g, this_f.phi, vect<float>(vect<double>(pos_to_double((*x)[i]) - xcom)));
 				(*f)[i].phi = this_f.phi;
 				(*f)[i].g = this_f.g;
 			}
 			gravity_queue_add_work(tptr->work_id, f, x, std::move(PP_list), std::move(PC_list), [f, x, this]() {
+				for (auto i = f->begin(); i != f->end(); i++) {
+					i->phi += SELF_PHI * opts.particle_mass / opts.h;
+				}
 				if (fmm.stats) {
 					int j = 0;
-					for (auto i = f->begin(); i != f->end(); i++) {
-						i->phi += SELF_PHI * opts.particle_mass / opts.h;
-					}
 					for (auto i = tptr->parts.begin(); i != tptr->parts.end(); i++) {
 						if (i->out) {
 							output_add_particle(*i, (*f)[j]);
@@ -661,6 +681,9 @@ int tree::kick_fmm(int stack_cnt, std::vector<check_item> &&dchecks, std::vector
 			futr.get();
 		}
 
+	}
+	if (tptr->level == 0) {
+		printf("%i\n", (int) cnt);
 	}
 	return 0;
 }

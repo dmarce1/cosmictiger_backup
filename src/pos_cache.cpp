@@ -54,6 +54,12 @@ std::vector<std::vector<part_pos>> get_remote_positions(const std::vector<tree_p
 
 std::vector<std::shared_ptr<std::vector<part_pos>>> get_positions(const std::vector<tree_ptr> &ids) {
 	std::vector < std::shared_ptr<std::vector<part_pos>> > res(ids.size());
+//	for( int i = 0; i < ids.size(); i++){
+//		auto this_pos =  reinterpret_cast<tree*>(ids[i].ptr)->get_positions();
+//		res[i] = (std::make_shared<decltype(this_pos)>(std::move(this_pos)));
+//	}
+//	return res;
+//
 	std::vector < std::shared_ptr < cache_entry >> cache_entries(ids.size());
 	std::unordered_map<int, request_type> requests;
 	std::vector<bool> notfound(ids.size());
@@ -118,7 +124,7 @@ std::vector<std::shared_ptr<std::vector<part_pos>>> get_positions(const std::vec
 		i++;
 	}
 	for (int i = 0; i < ids.size(); i++) {
-		if (!cache_entries[i]->ready) {
+		while (!cache_entries[i]->ready) {
 			hpx::this_thread::yield();
 		}
 	}

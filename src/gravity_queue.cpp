@@ -99,6 +99,7 @@ void gravity_queue_add_work(std::uint64_t id, std::shared_ptr<std::vector<_4forc
 				}
 
 			}
+//			printf( "%i\n", this_subunit.yiters.size());
 			gunits.push_back(std::move(this_subunit));
 		}
 

@@ -65,7 +65,7 @@ std::uint64_t gravity_CC_direct(expansion<float> &L, const vect<position> &x, st
 	static const auto one = simd_float(1.0);
 	static const auto half = simd_float(0.5);
 	std::uint64_t flop = 0;
-	vect<simd_int> X, Y;
+	static thread_local vect<simd_int> X, Y;
 	multipole<simd_float> M;
 	expansion<simd_float> Lacc;
 	Lacc = simd_float(0);

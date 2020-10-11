@@ -23,7 +23,9 @@ bool options::process_options(int argc, char *argv[]) {
 	command_opts.add_options() //
 	("help", "produce help message") //
 	("config_file", po::value < std::string > (&config_file)->default_value(""), "configuration file") //
+	("ewald", po::value < bool > (&ewald)->default_value(true), "use ewald correction") //
 	("code_to_cm", po::value<double>(&code_to_cm)->default_value(1.0), "code units to centimers conversion factor") //
+	("theta", po::value<double>(&theta)->default_value(0.5), "opening criterion") //
 	("soft_len", po::value<double>(&soft_len)->default_value(0.02), "Plummer softening length in units of mean particle separation") //
 	("input_file", po::value < std::string > (&input_file)->default_value(""), "base name for input files from N-GenIC") //
 	("bucket_size", po::value<int>(&bucket_size)->default_value(64), "maximum number of particles on a node") //
