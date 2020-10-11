@@ -523,7 +523,7 @@ bucket tree::get_parts() {
 
 std::vector<int> tree::checks_far(const std::vector<check_item> &checks, bool ewald) {
 	static const float h = opts.h;
-	const simd_float R1 = tptr->multi.r + h;
+	const simd_float R1 = tptr->multi.r * opts.sink_bias + h * fmm.theta;
 	vect<simd_int> X1;
 	for (int dim = 0; dim < NDIM; dim++) {
 		X1[dim] = (int) tptr->multi.x[dim];

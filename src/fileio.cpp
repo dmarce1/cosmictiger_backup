@@ -2,6 +2,7 @@
 #include <cosmictiger/fileio.hpp>
 #include <cosmictiger/gravity.hpp>
 #include <cosmictiger/hpx.hpp>
+#include <cosmictiger/rand.hpp>
 #include <cosmictiger/options.hpp>
 
 // This header structure was copied from N-GenIC
@@ -106,7 +107,7 @@ void fileio_init_read() {
 		part.x[1] = y;
 		part.x[2] = z;
 		part.rung = 0;
-		part.out = 1;
+		part.out = rand1() < opts.out_pct;
 		part.group = 0;
 		parts.insert(part);
 	}
