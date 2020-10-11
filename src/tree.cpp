@@ -334,7 +334,7 @@ multipole_return tree::compute_multipoles(int stack_cnt, std::uint64_t work_id, 
 				r = std::max(abs(dxl) + ml.r, abs(dxr) + mr.r);
 				for (int dim = 0; dim < NDIM; dim++) {
 					prange.max[dim] = std::max(L.prange.max[dim], R.prange.max[dim]);
-					prange.min[dim] = std::max(L.prange.min[dim], R.prange.min[dim]);
+					prange.min[dim] = std::min(L.prange.min[dim], R.prange.min[dim]);
 				}
 			}
 			vect<double> corner;
