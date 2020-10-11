@@ -90,6 +90,10 @@ int tree_ewald_min_level(double theta, double h) {
 			}
 			lev++;
 		}
+		static std::atomic<int> lk(0);
+		if( lk++ == 0 && hpx::get_locality_id() == 0 ) {
+			printf( "Ewald level = %i\n", lev);
+		}
 		return lev;
 	} else {
 		return 0;
@@ -330,7 +334,7 @@ multipole_return tree::compute_multipoles(int stack_cnt, std::uint64_t work_id, 
 				r = std::max(abs(dxl) + ml.r, abs(dxr) + mr.r);
 				for (int dim = 0; dim < NDIM; dim++) {
 					prange.max[dim] = std::max(L.prange.max[dim], R.prange.max[dim]);
-					prange.min[dim] = std::max(L.prange.min[dim], L.prange.min[dim]);
+					prange.min[dim] = std::max(L.prange.min[dim], R.prange.min[dim]);
 				}
 			}
 			vect<double> corner;
@@ -519,7 +523,7 @@ bucket tree::get_parts() {
 
 std::vector<int> tree::checks_far(const std::vector<check_item> &checks, bool ewald) {
 	static const float h = opts.h;
-	const simd_float R1 = tptr->multi.r + float(2) * h;
+	const simd_float R1 = tptr->multi.r + h;
 	vect<simd_int> X1;
 	for (int dim = 0; dim < NDIM; dim++) {
 		X1[dim] = (int) tptr->multi.x[dim];
@@ -617,7 +621,7 @@ int tree::kick_fmm(int stack_cnt, std::vector<check_item> &&dchecks, std::vector
 		gravity_CC_direct(L.l, tptr->multi.x, CC_list, fmm.stats);
 		gravity_CP_direct(L.l, tptr->multi.x, cp, fmm.stats);
 		if (opts.ewald) {
-//			gravity_CC_ewald(L.l, tptr->multi.x, ewald_list, fmm.stats);
+			gravity_CC_ewald(L.l, tptr->multi.x, ewald_list, fmm.stats);
 		}
 
 		dchecks = dchecks_fut.get();
