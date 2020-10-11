@@ -55,6 +55,7 @@ void gravity_queue_add_work(std::uint64_t id, std::shared_ptr<std::vector<_4forc
 	assert(entry->members_in <= entry->member_count);
 	if (entry->members_in == entry->member_count) {
 		auto unit = std::move(*entry);
+		lock.unlock();
 		std::unordered_set<tree_ptr, tree_ptr_hash> part_requests;
 		for (int i = 0; i < unit.units.size(); i++) {
 			for (auto &this_y : unit.units[i].y) {

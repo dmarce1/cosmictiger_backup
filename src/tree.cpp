@@ -559,7 +559,6 @@ std::vector<int> tree::checks_far(const std::vector<check_item> &checks, bool ew
 }
 
 int tree::kick_fmm(int stack_cnt, std::vector<check_item> &&dchecks, std::vector<check_item> &&echecks, expansion_src &&L) {
-	static std::atomic<int> cnt(0);
 
 	std::vector<check_item> next_dchecks;
 	std::vector<check_item> next_echecks;
@@ -614,9 +613,8 @@ int tree::kick_fmm(int stack_cnt, std::vector<check_item> &&dchecks, std::vector
 			const auto &this_x = *cp_ptrs[i];
 			cp.insert(cp.end(), this_x.begin(), this_x.end());
 		}
-		cnt += cp.size();
 
-//		gravity_CC_direct(L.l, tptr->multi.x, CC_list, fmm.stats);
+		gravity_CC_direct(L.l, tptr->multi.x, CC_list, fmm.stats);
 		gravity_CP_direct(L.l, tptr->multi.x, cp, fmm.stats);
 		if (opts.ewald) {
 //			gravity_CC_ewald(L.l, tptr->multi.x, ewald_list, fmm.stats);
@@ -634,10 +632,10 @@ int tree::kick_fmm(int stack_cnt, std::vector<check_item> &&dchecks, std::vector
 					const auto &pos = dchecks[i].info->node;
 					const auto &mpole = dchecks[i].info->multi;
 					if (dchecks[i].opened) {
-//						PP_list.push_back(pos);
+						PP_list.push_back(pos);
 					} else {
 						if (far[i]) {
-							//						PC_list.push_back(mpole);
+							PC_list.push_back(mpole);
 						} else {
 							next_dchecks.push_back(dchecks[i]);
 						}
@@ -681,9 +679,6 @@ int tree::kick_fmm(int stack_cnt, std::vector<check_item> &&dchecks, std::vector
 			futr.get();
 		}
 
-	}
-	if (tptr->level == 0) {
-		printf("%i\n", (int) cnt);
 	}
 	return 0;
 }
