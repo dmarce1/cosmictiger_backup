@@ -428,7 +428,7 @@ void PP_direct_kernel(_4force *F, const vect<position> *x, const vect<position> 
 								}
 							} else {
 								for (int dim = 0; dim < NDIM; dim++) {
-									dX[dim] = float((double(this_x[dim]) - double(Y[dim])) * float(POS_INV));			// 3
+									dX[dim] = float(double(this_x[dim]) - double(Y[dim]));			// 3
 								}
 							}
 							flop[iwarp][n] += 3;

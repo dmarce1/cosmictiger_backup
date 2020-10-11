@@ -50,6 +50,7 @@ std::pair<double, double> compute_error(std::vector<output_part> &parts) {
 	}
 	for (int i = 0; i < f.size(); i++) {
 		auto dg = parts[indices[i]].g - f[i].g;
+	//	parts[indices[i]].g =f[i].g;
 		err += abs(dg)/(abs(f[i].g));
 	//	printf( "%e %e\n", parts[indices[i]].g[0], f[i].g[0]);
 	}
