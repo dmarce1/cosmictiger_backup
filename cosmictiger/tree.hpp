@@ -81,6 +81,20 @@ struct drift_return {
 	}
 };
 
+struct kick_return {
+	int rung;
+	kick_return() {
+		rung = 0;
+	}
+	template<class A>
+	void serialize(A&& arc, unsigned) {
+		arc & rung;
+	}
+};
+
+kick_return tree_kick_return();
+
+
 class tree: public hpx::components::managed_component_base<tree> {
 	tree_mems *tptr;
 public:

@@ -6,6 +6,7 @@
 #include <cosmictiger/gravity_queue.hpp>
 #include <cosmictiger/pos_cache.hpp>
 #include <cosmictiger/output.hpp>
+#include <cosmictiger/time.hpp>
 
 #include <atomic>
 #include <stack>
@@ -54,6 +55,8 @@ HPX_REGISTER_COMPONENT(hpx::components::managed_component<tree>, tree);
 
 static std::shared_ptr<tree_dir> directory;
 static fmm_params fmm;
+static kick_return krc;
+static mutex_type krc_mtx;
 
 void tree_broadcast_directory(const tree_dir &dir);
 void tree_cleanup();
@@ -102,6 +105,31 @@ int tree_ewald_min_level(double theta, double h) {
 
 void tree_insert_parts(bucket &&parts) {
 	directory->find_home(std::move(parts)).get();
+}
+
+kick_return tree_kick_return();
+
+HPX_PLAIN_ACTION (tree_kick_return);
+
+kick_return tree_kick_return() {
+	const auto &localities = hpx_localities();
+	const int il = ((hpx::get_locality_id() + 1) << 1) - 1;
+	const int ir = ((hpx::get_locality_id() + 1) << 1);
+	std::vector < hpx::future < kick_return >> futs;
+	if (il < localities.size()) {
+		futs.push_back(hpx::async<tree_kick_return_action>(localities[il]));
+	}
+	if (ir < localities.size()) {
+		futs.push_back(hpx::async<tree_kick_return_action>(localities[ir]));
+	}
+
+	for (int i = 0; i < futs.size(); i++) {
+		auto tmp = futs[i].get();
+		krc.rung = std::max(krc.rung, tmp.rung);
+	}
+	kick_return rc = krc;
+	krc = kick_return();
+	return rc;
 }
 
 void tree_broadcast_directory(const tree_dir &dir) {
@@ -174,6 +202,8 @@ tree::tree(box_id_type id, const range &box, int level) {
 	tptr->leaf = true;
 	tptr->level = level;
 	tptr->id = id;
+	tptr->child_cnt[0] = 0;
+	tptr->child_cnt[1] = 0;
 }
 
 tree::tree(const tree &other) {
@@ -635,7 +665,7 @@ int tree::kick_fmm(int stack_cnt, std::vector<check_item> &&dchecks, std::vector
 			echecks = echecks_fut.get();
 		}
 		if (tptr->leaf) {
-			assert(echecks.size() == 0);
+			assert(!opts.ewald || echecks.size() == 0);
 			while (dchecks.size()) {
 				next_dchecks.resize(0);
 				const auto far = checks_far(dchecks, false);
@@ -672,15 +702,29 @@ int tree::kick_fmm(int stack_cnt, std::vector<check_item> &&dchecks, std::vector
 				for (auto i = f->begin(); i != f->end(); i++) {
 					i->phi += SELF_PHI * opts.particle_mass / opts.h;
 				}
-				if (fmm.stats) {
-					int j = 0;
-					for (auto i = tptr->parts.begin(); i != tptr->parts.end(); i++) {
+				int j = 0;
+				int max_rung = 0;
+				for (auto i = tptr->parts.begin(); i != tptr->parts.end(); i++) {
+					if (i->rung >= fmm.min_rung || fmm.stats) {
 						if (i->out) {
 							output_add_particle(*i, (*f)[j]);
 						}
+						double this_dt;
+						if (i->rung != 0) {
+							this_dt = rung_to_dt(i->rung);
+							i->v = i->v + (*f)[j].g * this_dt;
+						}
+						const auto g = abs((*f)[j].g);
+						this_dt = opts.eta * std::sqrt(opts.h / (g * SELF_PHI));
+						i->rung = std::max(std::max((int) dt_to_rung(this_dt), (int) fmm.min_rung), (int) (i->rung - 1));
+						max_rung = std::max((int) max_rung, (int) i->rung);
+						this_dt = rung_to_dt(i->rung);
+						i->v = i->v + (*f)[j].g * this_dt;
 						j++;
 					}
 				}
+				std::lock_guard<mutex_type> lock(krc_mtx);
+				krc.rung = std::max(krc.rung, max_rung);
 			}, fmm.stats);
 
 		} else {

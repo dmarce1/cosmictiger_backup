@@ -24,9 +24,10 @@ bool options::process_options(int argc, char *argv[]) {
 	("help", "produce help message") //
 	("config_file", po::value < std::string > (&config_file)->default_value(""), "configuration file") //
 	("ewald", po::value < bool > (&ewald)->default_value(true), "use ewald correction") //
-	("test", po::value < bool > (&test)->default_value(true), "test solver") //
+	("test", po::value < bool > (&test)->default_value(false), "test solver") //
 	("code_to_cm", po::value<double>(&code_to_cm)->default_value(1.0), "code units to centimers conversion factor") //
 	("sink_bias", po::value<double>(&sink_bias)->default_value(1.5), "sink radius multiplier") //
+	("eta", po::value<double>(&eta)->default_value(0.2), "accuracy parameter") //
 	("out_pct", po::value<double>(&out_pct)->default_value(0.0), "percentage of particles to output") //
 	("theta", po::value<double>(&theta)->default_value(0.5), "opening criterion") //
 	("soft_len", po::value<double>(&soft_len)->default_value(0.02), "Plummer softening length in units of mean particle separation") //
@@ -52,11 +53,12 @@ bool options::process_options(int argc, char *argv[]) {
 	}
 	po::notify(vm);
 	if (input_file == "") {
-		input_file = std::string("../ics/4x4/ics");
+		input_file = std::string("../ics/4x1/ics");
 	}
 	if( test == true ) {
 		out_pct = 1.0;
 	}
+	opts.t_max = 1.0;
 	const auto loc = hpx::find_all_localities();
 	const auto sz = loc.size();
 	std::vector<hpx::future<void>> futs;

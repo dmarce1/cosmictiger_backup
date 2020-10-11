@@ -3,6 +3,7 @@
 
 #include <cosmictiger/error.hpp>
 #include <cosmictiger/rand.hpp>
+#include <cosmictiger/time.hpp>
 #include <cosmictiger/timer.hpp>
 #include <cosmictiger/tree.hpp>
 #include <cosmictiger/fileio.hpp>
@@ -25,10 +26,8 @@ void set_params(double theta, int min_rung, bool stats) {
 	tree_set_fmm_params(params);
 }
 
-void solve_gravity(tree_client root, double theta, int min_rung, bool stats) {
-	set_params(theta, min_rung, stats);
+void solve_gravity(tree_client root) {
 	multipole_time -= timer();
-	printf("multipoles\n");
 	root.compute_multipoles(0, false, -1, bucket(), 0).get();
 	multipole_time += timer();
 	fmm_time -= timer();
@@ -42,10 +41,8 @@ void solve_gravity(tree_client root, double theta, int min_rung, bool stats) {
 	expansion_src L;
 	L.l = 0.0;
 	L.x[0] = L.x[1] = L.x[2] = 0.5;
-	printf("fmm\n");
 	root.kick_fmm(0, false, std::move(dchecklist), std::move(echecklist), std::move(L)).get();
 	fmm_time += timer();
-	printf("Cleaning up\n");
 	check_cleanup();
 
 }
@@ -61,33 +58,54 @@ int hpx_main(int argc, char *argv[]) {
 	auto root_id = hpx::new_<tree>(hpx::find_here(), 1, root_box, 0).get();
 	auto root = tree_client(root_id, hpx::async<tree::get_ptr_action>(root_id).get());
 
+	root.grow(0, false, bucket(), true).get();
+	auto tstat = root.load_balance(0, false, 0, 1).get();
+	root.grow(0, false, bucket()).get();
+	hpx::async<tree::build_tree_dir_action>(root_id, root).get();
+	fileio_init_read();
+	std::uint64_t ndistrib;
+	std::uint64_t chunk_size = 1024 * 1024;
+	std::uint64_t ntotal;
+	do {
+		int rc = root.verify(0, false).get();
+		if (rc) {
+			printf("%s\n", tree_verification_error(rc).c_str());
+		}
+		ndistrib = fileio_insert_parts(chunk_size);
+		ntotal = root.grow(0, false, bucket()).get();
+		chunk_size = std::min(2 * chunk_size, std::uint64_t(32 * 1024 * 1024));
+	} while (ndistrib > 0);
+	printf("%li loaded\n", ntotal);
+	tstat = root.load_balance(0, false, 0, ntotal).get();
 	if (opts.test) {
-		root.grow(0, false, bucket(), true).get();
-		auto tstat = root.load_balance(0, false, 0, 1).get();
-		root.grow(0, false, bucket()).get();
-		hpx::async<tree::build_tree_dir_action>(root_id, root).get();
-		fileio_init_read();
-		std::uint64_t ndistrib;
-		std::uint64_t chunk_size = 1024 * 1024;
-		std::uint64_t ntotal;
-		do {
-			int rc = root.verify(0, false).get();
-			if (rc) {
-				printf("%s\n", tree_verification_error(rc).c_str());
-			}
-			ndistrib = fileio_insert_parts(chunk_size);
-			ntotal = root.grow(0, false, bucket()).get();
-			chunk_size = std::min(2 * chunk_size, std::uint64_t(32 * 1024 * 1024));
-		} while (ndistrib > 0);
-		printf("%li loaded\n", ntotal);
-		tstat = root.load_balance(0, false, 0, ntotal).get();
 
-		solve_gravity(root, opts.theta, 0, true);
+		set_params(opts.theta, 0, true);
+		solve_gravity(root);
 		printf("Multipoles took %e seconds\n", multipole_time);
 		printf("FMM took %e seconds\n", fmm_time);
 		auto output = gather_output();
 		compute_error(output);
 		output_to_file("parts.silo", output);
+	} else {
+		int i = 0;
+		double t = 0.0;
+		time_type itime = 0;
+		constexpr int nout = 64;
+		do {
+			set_params(opts.theta, min_rung(itime), false);
+			solve_gravity(root);
+			auto krc = tree_kick_return();
+			double dt = rung_to_dt(krc.rung);
+			double drift_time = timer();
+			root.drift(0, false, dt).get();
+			root.count_children().get();
+			drift_time = timer() - drift_time;
+			itime = inc(itime, krc.rung);
+			t = time_to_double(itime);
+			printf("%i %e %i %i %e %e %e\n", i, dt, krc.rung, min_rung(itime), multipole_time, fmm_time, drift_time);
+			multipole_time = fmm_time = 0.0;
+			i++;
+		} while (t < opts.t_max);
 	}
 
 	//

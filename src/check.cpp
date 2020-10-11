@@ -38,7 +38,7 @@ hpx::future<std::vector<check_item>> get_next_checklist(const std::vector<check_
 	std::vector<tree_ptr> wait_list;
 	next.reserve(NCHILD * old.size());
 	for (int i = 0; i < old.size(); i++) {
-		assert(old[i].opened == false);
+//		assert(old[i].opened == false);
 		if (old[i].info->leaf) {
 			auto j = old[i];
 			j.opened = true;

@@ -15,12 +15,16 @@ public:
 	double h;
 	double sink_bias;
 	double theta;
+	double t_max;
+	double eta;
 	std::uint64_t problem_size;
 	std::string input_file;
 	std::string config_file;
 
 	template<class Arc>
 	void serialize(Arc &arc, unsigned) {
+		arc & t_max;
+		arc & eta;
 		arc & test;
 		arc & out_pct;
 		arc & ewald;

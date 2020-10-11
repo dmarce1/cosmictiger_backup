@@ -10,8 +10,8 @@ using time_type = std::uint32_t;
 #define RUNG_MAX 30
 
 inline double time_to_double(time_type t) {
-	static const auto t_max = options::get().t_max;
-	static const auto imax = time_type(1) << time_type(31);
+	const auto t_max = opts.t_max;
+	const auto imax = time_type(1) << time_type(31);
 	return ((double) t / (double) imax) * t_max;
 }
 
@@ -30,7 +30,7 @@ inline rung_type min_rung(time_type t) {
 }
 
 inline double rung_to_dt(std::int8_t rung) {
-	static const auto t_max = options::get().t_max;
+	const auto t_max = opts.t_max;
 	return t_max / (1 << rung);
 }
 
