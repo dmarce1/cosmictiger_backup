@@ -43,8 +43,14 @@ std::uint64_t gravity_CP_direct(expansion<float> &L, const vect<position> &x, st
 			}
 		}
 		vect<simd_float> dX;
-		for (int dim = 0; dim < NDIM; dim++) {
-			dX[dim] = simd_float(X[dim] - Y[dim]) * simd_float(POS_INV); // 3
+		if (opts.ewald) {
+			for (int dim = 0; dim < NDIM; dim++) {
+				dX[dim] = simd_float(X[dim] - Y[dim]) * simd_float(POS_INV); // 3
+			}
+		} else {
+			for (int dim = 0; dim < NDIM; dim++) {
+				dX[dim] = (simd_float(X[dim]) - simd_float(Y[dim])) * simd_float(POS_INV); // 3
+			}
 		}
 		flop += 3;
 		flop += multipole_interaction(Lacc, M, dX, false, do_phi);												// 	401
@@ -97,8 +103,14 @@ std::uint64_t gravity_CC_direct(expansion<float> &L, const vect<position> &x, st
 			}
 		}
 
-		for (int dim = 0; dim < NDIM; dim++) {
-			dX[dim] = simd_float(X[dim] - Y[dim]) * simd_float(POS_INV); // 3
+		if (opts.ewald) {
+			for (int dim = 0; dim < NDIM; dim++) {
+				dX[dim] = simd_float(X[dim] - Y[dim]) * simd_float(POS_INV); // 3
+			}
+		} else {
+			for (int dim = 0; dim < NDIM; dim++) {
+				dX[dim] = (simd_float(X[dim]) - simd_float(Y[dim])) * simd_float(POS_INV); // 3
+			}
 		}
 		flop += 3;
 		flop += multipole_interaction(Lacc, M, dX, false, do_phi);												// 986

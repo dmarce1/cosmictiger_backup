@@ -91,8 +91,8 @@ int tree_ewald_min_level(double theta, double h) {
 			lev++;
 		}
 		static std::atomic<int> lk(0);
-		if( lk++ == 0 && hpx::get_locality_id() == 0 ) {
-			printf( "Ewald level = %i\n", lev);
+		if (lk++ == 0 && hpx::get_locality_id() == 0) {
+			printf("Ewald level = %i\n", lev);
 		}
 		return lev;
 	} else {
@@ -544,10 +544,16 @@ std::vector<int> tree::checks_far(const std::vector<check_item> &checks, bool ew
 		}
 	}
 	for (int i = 0; i < simd_size; i++) {
-		const vect<simd_int> dXi = X2[i] - X1;
 		vect<simd_float> dX;
-		for (int dim = 0; dim < NDIM; dim++) {
-			dX[dim] = simd_float(dXi[dim]) * POS_INV;
+		if (opts.ewald) {
+			const vect<simd_int> dXi = X2[i] - X1;
+			for (int dim = 0; dim < NDIM; dim++) {
+				dX[dim] = simd_float(dXi[dim]) * POS_INV;
+			}
+		} else {
+			for (int dim = 0; dim < NDIM; dim++) {
+				dX[dim] = (simd_float(X2[i][dim]) - simd_float(X1[dim])) * POS_INV;
+			}
 		}
 		simd_float dist = abs(dX);
 		if (ewald) {
@@ -629,6 +635,7 @@ int tree::kick_fmm(int stack_cnt, std::vector<check_item> &&dchecks, std::vector
 			echecks = echecks_fut.get();
 		}
 		if (tptr->leaf) {
+			assert(echecks.size() == 0);
 			while (dchecks.size()) {
 				next_dchecks.resize(0);
 				const auto far = checks_far(dchecks, false);
