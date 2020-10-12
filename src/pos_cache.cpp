@@ -41,6 +41,25 @@ struct request_type {
 std::vector<std::vector<part_pos>> get_remote_positions(const std::vector<tree_ptr> ids);
 
 HPX_PLAIN_ACTION (get_remote_positions);
+HPX_PLAIN_ACTION (pos_cache_cleanup);
+
+void pos_cache_cleanup() {
+	std::vector<hpx::future<void>> futs;
+	const auto il = ((hpx::get_locality_id() + 1) << 1) - 1;
+	const auto ir = ((hpx::get_locality_id() + 1) << 1);
+	if (il < hpx_localities().size()) {
+		futs.push_back(hpx::async<pos_cache_cleanup_action>(hpx_localities()[il]));
+	}
+	if (ir < hpx_localities().size()) {
+		futs.push_back(hpx::async<pos_cache_cleanup_action>(hpx_localities()[ir]));
+	}
+	for (int i = 0; i < CACHE_WIDTH; i++) {
+		for (int j = 0; j < CACHE_DEPTH; j++) {
+			cache[i].entries[j] = nullptr;
+		}
+	}
+	hpx::wait_all(futs.begin(), futs.end());
+}
 
 std::vector<std::vector<part_pos>> get_remote_positions(const std::vector<tree_ptr> ids) {
 	std::vector < std::vector < part_pos >> pos(ids.size());

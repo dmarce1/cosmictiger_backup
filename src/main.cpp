@@ -96,7 +96,7 @@ int hpx_main(int argc, char *argv[]) {
 		cosmo.advance_to_scalefactor(1.0 / (opts.z0 + 1.0));
 		int oi = 0;
 		do {
-			bool output = true;
+			bool output = false;
 			set_params(opts.theta, min_rung(itime), output, cosmo.a);
 			solve_gravity(root);
 			if (output) {
@@ -112,7 +112,7 @@ int hpx_main(int argc, char *argv[]) {
 			double a1 = cosmo.a;
 			double abar = std::sqrt(1.0 / (0.5 / (a0 * a0) + 0.5 / (a1 * a1)));
 			double drift_time = timer();
-	//		printf( "ndrift = %i\n", root.drift(0, false, dt, abar).get().ndrift);
+			root.drift(0, false, dt, abar).get();
 			root.count_children().get();
 			drift_time = timer() - drift_time;
 			itime = inc(itime, krc.rung);

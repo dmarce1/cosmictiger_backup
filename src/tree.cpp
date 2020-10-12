@@ -743,6 +743,10 @@ int tree::kick_fmm(int stack_cnt, std::vector<check_item> &&dchecks, std::vector
 		}
 
 	}
+	if (tptr->level == 0) {
+		check_cleanup();
+		pos_cache_cleanup();
+	}
 	return 0;
 }
 
