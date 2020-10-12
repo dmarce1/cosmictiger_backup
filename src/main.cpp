@@ -86,7 +86,7 @@ int hpx_main(int argc, char *argv[]) {
 		printf("Multipoles took %e seconds\n", multipole_time);
 		printf("FMM took %e seconds\n", fmm_time);
 		auto output = gather_output();
-		compute_error (output);
+		compute_error(output);
 	} else {
 		int i = 0;
 		double t = 0.0;
@@ -95,13 +95,15 @@ int hpx_main(int argc, char *argv[]) {
 		cosmos cosmo;
 		cosmo.advance_to_scalefactor(1.0 / (opts.z0 + 1.0));
 		int oi = 0;
+		printf("Output every %e\n", opts.t_max / 64);
 		do {
-			bool output = false;
+			bool output = t * 64.0 / opts.t_max >= oi;
 			set_params(opts.theta, min_rung(itime), output, cosmo.a);
 			solve_gravity(root);
 			if (output) {
+		//		printf( "Output with error\n");
 				auto output = gather_output();
-				compute_error (output);
+		//		compute_error(output);
 				output_to_file((std::string("parts.") + std::to_string(oi) + ".silo"), output);
 				oi++;
 			}
@@ -117,7 +119,7 @@ int hpx_main(int argc, char *argv[]) {
 			drift_time = timer() - drift_time;
 			itime = inc(itime, krc.rung);
 			t = time_to_double(itime);
-			printf("%i %e %e %i %i %e %e %e\n", i, dt, cosmo.a, krc.rung, min_rung(itime), multipole_time, fmm_time, drift_time);
+			printf("%i %e %e %e %i %i %e %e %e\n", i, t, dt, cosmo.a, krc.rung, min_rung(itime), multipole_time, fmm_time, drift_time);
 			multipole_time = fmm_time = 0.0;
 			i++;
 		} while (t < opts.t_max);

@@ -54,7 +54,7 @@ bool options::process_options(int argc, char *argv[]) {
 	}
 	po::notify(vm);
 	if (input_file == "") {
-		input_file = std::string("../ics/4x1/ics");
+		input_file = std::string("../ics/8x1/ics");
 	}
 	if( test == true ) {
 		out_pct = 1.0;

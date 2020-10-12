@@ -87,7 +87,7 @@ int tree_ewald_min_level(double theta, double h) {
 			} else {
 				a = std::sqrt(1.5);
 			}
-			double r = 2 * (a + h * N) / theta;
+			double r = 2 * a / theta + h * N;
 			if (dx > r) {
 				break;
 			}
