@@ -47,8 +47,9 @@ void cosmos::advance_to_time(double t2, int Nstep) {
 
 void cosmos::advance_to_scalefactor(double a2) {
 	double a1 = a2;
-	while (a != a2) {
-
+	while (std::abs(a / a2 - 1.0) > 1.0e-6) {
+		double dt = (a2 - a) / adot / 1000.0;
+		advance_to_time(t + dt, 100);
 	}
 
 }

@@ -22,12 +22,14 @@ public:
 	double G;
 	double H0;
 	double omega_m;
+	double z0;
 	std::uint64_t problem_size;
 	std::string input_file;
 	std::string config_file;
 
 	template<class Arc>
 	void serialize(Arc &arc, unsigned) {
+		arc & z0;
 		arc & G;
 		arc & H0;
 		arc & omega_m;

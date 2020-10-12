@@ -53,7 +53,7 @@ public:
 		return hpx::get_locality_id_from_id(id);
 	}
 	hpx::future<int> destroy(int) const;
-	hpx::future<drift_return> drift(int, bool, float dt) const;
+	hpx::future<drift_return> drift(int, bool, double dt, double abar) const;
 
 	int place_parts(bucket&&) const;
 	check_pair get_child_checks() const;

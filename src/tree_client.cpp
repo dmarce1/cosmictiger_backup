@@ -78,7 +78,7 @@ hpx::future<std::uint64_t> tree_client::grow(int stack_cnt, bool left, bucket &&
 	}
 }
 
-hpx::future<multipole_return> tree_client::compute_multipoles(int stack_cnt, bool left, std::uint64_t work_id, bucket&& parts, std::uint64_t index) const {
+hpx::future<multipole_return> tree_client::compute_multipoles(int stack_cnt, bool left, std::uint64_t work_id, bucket &&parts, std::uint64_t index) const {
 	if (hpx::get_colocation_id(id).get() != hpx::find_here()) {
 		return hpx::async<tree::compute_multipoles_action>(id, 0, work_id, std::move(parts), index);
 	} else {
@@ -141,16 +141,16 @@ hpx::future<int> tree_client::destroy(int stack_cnt) const {
 
 }
 
-hpx::future<drift_return> tree_client::drift(int stack_cnt, bool left, float dt) const {
+hpx::future<drift_return> tree_client::drift(int stack_cnt, bool left, double dt, double abar) const {
 	if (hpx::get_colocation_id(id).get() != hpx::find_here()) {
-		return hpx::async<tree::drift_action>(id, 0, dt);
+		return hpx::async<tree::drift_action>(id, 0, dt, abar);
 	} else {
 		if (left || stack_cnt >= MAX_STACK) {
-			return thread_handler<drift_return>([this](int stack_cnt, float dt) {
-				return reinterpret_cast<tree*>(ptr)->drift(stack_cnt, std::move(dt));
+			return thread_handler<drift_return>([this, abar](int stack_cnt, float dt) {
+				return reinterpret_cast<tree*>(ptr)->drift(stack_cnt, std::move(dt), abar);
 			}, stack_cnt, std::move(dt));
 		} else {
-			return hpx::make_ready_future(reinterpret_cast<tree*>(ptr)->drift(stack_cnt, dt));
+			return hpx::make_ready_future(reinterpret_cast<tree*>(ptr)->drift(stack_cnt, dt, abar));
 		}
 	}
 

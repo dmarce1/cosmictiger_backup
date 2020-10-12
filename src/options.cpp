@@ -28,7 +28,7 @@ bool options::process_options(int argc, char *argv[]) {
 	("omega_m", po::value<double>(&omega_m)->default_value(0.3), "mass density paramter") //
 	("sink_bias", po::value<double>(&sink_bias)->default_value(1.5), "sink radius multiplier") //
 	("eta", po::value<double>(&eta)->default_value(0.2), "accuracy parameter") //
-	("out_pct", po::value<double>(&out_pct)->default_value(0.0), "percentage of particles to output") //
+	("out_pct", po::value<double>(&out_pct)->default_value(1.0), "percentage of particles to output") //
 	("theta", po::value<double>(&theta)->default_value(0.5), "opening criterion") //
 	("soft_len", po::value<double>(&soft_len)->default_value(0.02), "Plummer softening length in units of mean particle separation") //
 	("input_file", po::value < std::string > (&input_file)->default_value(""), "base name for input files from N-GenIC") //

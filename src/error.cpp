@@ -41,6 +41,10 @@ std::pair<double, double> compute_error(std::vector<output_part> &parts) {
 	}
 	auto ts = timer();
 	gravity_ewald_direct(f, x, y);
+	for( auto i = 0; i < f.size(); i++) {
+		f[i].g = f[i].g * opts.G;
+		f[i].phi = f[i].phi * opts.G;
+	}
 	printf("Direct solve took %e seconds\n", timer() - ts);
 	double err = 0.0;
 	double err2 = 0.0;
@@ -57,7 +61,7 @@ std::pair<double, double> compute_error(std::vector<output_part> &parts) {
 		err += this_err;
 		err2 += this_err * this_err;
 		errs.push_back(this_err);
-		//	printf( "%e %e\n", parts[indices[i]].g[0], f[i].g[0]);
+	//		printf( "%e %e\n", parts[indices[i]].g[0], f[i].g[0]);
 	}
 	err /= f.size();
 	err2 /= f.size();

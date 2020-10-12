@@ -4,6 +4,7 @@
 #include <cosmictiger/hpx.hpp>
 #include <cosmictiger/rand.hpp>
 #include <cosmictiger/options.hpp>
+#include <cosmictiger/cosmos.hpp>
 
 // This header structure was copied from N-GenIC
 
@@ -66,7 +67,6 @@ void fileio_init_read() {
 	opts.problem_size = total_parts;
 	opts.h = SELF_PHI * opts.soft_len * std::pow(opts.problem_size, -1.0 / 3.0);
 	opts.particle_mass = header.mass[1];
-
 	const auto Gcgs = 6.672e-8;
 	const auto Hcgs = 3.2407789e-18;
 	const auto mtot = opts.particle_mass * opts.problem_size;
@@ -74,12 +74,16 @@ void fileio_init_read() {
 	opts.code_to_s = opts.code_to_cm / 3e10;
 	opts.H0 = Hcgs * opts.code_to_s;
 	opts.G = Gcgs / pow(opts.code_to_cm, 3) * opts.code_to_g * pow(opts.code_to_s, 2);
-
+	opts.z0 = header.redshift;
+	cosmos cosmo;
+	cosmo.advance_to_scalefactor(1.0/(opts.z0+1.0));
+	opts.t_max = -cosmo.t;
 	if (locality == 0) {
 		printf("Reading %li particles\n", total_parts);
 		printf("code_to_cm =    %e\n", opts.code_to_cm);
 		printf("code_to_g  =    %e\n", opts.code_to_g);
 		printf("code_to_s  =    %e\n", opts.code_to_s);
+		printf("t_max  =        %e\n", opts.t_max);
 		printf("G          =    %e\n", opts.G);
 		printf("H0         =    %e\n", opts.H0);
 		printf("Z =             %e\n", header.redshift);

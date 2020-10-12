@@ -39,9 +39,11 @@ struct fmm_params {
 	float theta;
 	int min_rung;
 	bool stats;
+	double a;
 
 	template<class A>
 	void serialize(A &&arc, unsigned) {
+		arc & a;
 		arc & theta;
 		arc & min_rung;
 		arc & stats;
@@ -74,10 +76,12 @@ void tree_set_fmm_params(fmm_params);
 struct drift_return {
 	bucket parts;
 	std::uint64_t cnt;
+	std::uint64_t ndrift;
 	template<class A>
 	void serialize(A&& arc, unsigned) {
 		arc & parts;
 		arc & cnt;
+		arc & ndrift;
 	}
 };
 
@@ -106,7 +110,7 @@ public:
 	multipole_return compute_multipoles(int, std::uint64_t, bucket&& parts, std::uint64_t);
 	void create_children();
 	int destroy(int);
-	drift_return drift(int, float dt);
+	drift_return drift(int, double dt, double abar);
 	int place_parts(bucket&&);
 	check_pair get_child_checks() const;
 	check_info get_check_info() const;

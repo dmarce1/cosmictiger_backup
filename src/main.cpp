@@ -19,11 +19,12 @@ void yield_to_hpx() {
 	hpx::this_thread::yield();
 }
 
-void set_params(double theta, int min_rung, bool stats) {
+void set_params(double theta, int min_rung, bool stats, double a) {
 	fmm_params params;
 	params.theta = theta;
 	params.min_rung = min_rung;
 	params.stats = stats;
+	params.a = a;
 	tree_set_fmm_params(params);
 }
 
@@ -51,7 +52,7 @@ void solve_gravity(tree_client root) {
 int hpx_main(int argc, char *argv[]) {
 	opts.process_options(argc, argv);
 
-	set_params(opts.theta, 0, false);
+	set_params(opts.theta, 0, false, 1.0);
 	range root_box;
 	for (int dim = 0; dim < NDIM; dim++) {
 		root_box.min[dim] = 0.0;
@@ -65,12 +66,6 @@ int hpx_main(int argc, char *argv[]) {
 	root.grow(0, false, bucket()).get();
 	hpx::async<tree::build_tree_dir_action>(root_id, root).get();
 	fileio_init_read();
-	cosmos cosmo;
-	for (double t = 0.0; t >= -200.0; t -= 1.0) {
-		cosmo.advance_to_time(t);
-		printf("%e %e %e %e\n", cosmo.t, cosmo.tau, cosmo.a, cosmo.adot);
-	}
-	return hpx::finalize();
 	std::uint64_t ndistrib;
 	std::uint64_t chunk_size = 1024 * 1024;
 	std::uint64_t ntotal;
@@ -86,31 +81,43 @@ int hpx_main(int argc, char *argv[]) {
 	printf("%li loaded\n", ntotal);
 	tstat = root.load_balance(0, false, 0, ntotal).get();
 	if (opts.test) {
-
-		set_params(opts.theta, 0, true);
+		set_params(opts.theta, 0, true, 1.0);
 		solve_gravity(root);
 		printf("Multipoles took %e seconds\n", multipole_time);
 		printf("FMM took %e seconds\n", fmm_time);
 		auto output = gather_output();
-		compute_error(output);
-		output_to_file("parts.silo", output);
+		compute_error (output);
 	} else {
 		int i = 0;
 		double t = 0.0;
 		time_type itime = 0;
 		constexpr int nout = 64;
+		cosmos cosmo;
+		cosmo.advance_to_scalefactor(1.0 / (opts.z0 + 1.0));
+		int oi = 0;
 		do {
-			set_params(opts.theta, min_rung(itime), false);
+			bool output = true;
+			set_params(opts.theta, min_rung(itime), output, cosmo.a);
 			solve_gravity(root);
+			if (output) {
+				auto output = gather_output();
+				compute_error (output);
+				output_to_file((std::string("parts.") + std::to_string(oi) + ".silo"), output);
+				oi++;
+			}
 			auto krc = tree_kick_return();
 			double dt = rung_to_dt(krc.rung);
+			double a0 = cosmo.a;
+			cosmo.advance_to_time(t - opts.t_max + dt);
+			double a1 = cosmo.a;
+			double abar = std::sqrt(1.0 / (0.5 / (a0 * a0) + 0.5 / (a1 * a1)));
 			double drift_time = timer();
-			root.drift(0, false, dt).get();
+	//		printf( "ndrift = %i\n", root.drift(0, false, dt, abar).get().ndrift);
 			root.count_children().get();
 			drift_time = timer() - drift_time;
 			itime = inc(itime, krc.rung);
 			t = time_to_double(itime);
-			printf("%i %e %i %i %e %e %e\n", i, dt, krc.rung, min_rung(itime), multipole_time, fmm_time, drift_time);
+			printf("%i %e %e %i %i %e %e %e\n", i, dt, cosmo.a, krc.rung, min_rung(itime), multipole_time, fmm_time, drift_time);
 			multipole_time = fmm_time = 0.0;
 			i++;
 		} while (t < opts.t_max);
