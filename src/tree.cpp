@@ -843,13 +843,16 @@ drift_return tree::drift(int stack_cnt, float dt) {
 	const auto dist_level = bits_to_level(hpx_localities().size());
 	drift_return rc;
 	bucket &exit_parts = rc.parts;
+	const auto a1 = 1.00;
+	const auto a2 = 1.00;
+
 	if (tptr->leaf) {
 		std::lock_guard<mutex_type> lock(tptr->mtx);
 		auto i = tptr->parts.begin();
 		while (i != tptr->parts.end()) {
 			auto x = pos_to_double(i->x);
-			const auto v = i->v * 400.0;
-			x += v * dt;
+			const auto v = i->v;
+			x += v * dt * (0.5 / a1 / a1 + 0.5 / a2 / a2);
 			i->x = double_to_pos(x);
 			if (!in_range(pos_to_double(i->x), tptr->box)) {
 				exit_parts.insert(*i);

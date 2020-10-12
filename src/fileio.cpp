@@ -45,10 +45,10 @@ void fileio_init_read() {
 	const int ir = ((locality + 1) << 1);
 	std::vector<hpx::future<void>> futs;
 	if (il < hpx_localities().size()) {
-		futs.push_back(hpx::async < fileio_init_read_action > (hpx_localities()[il]));
+		futs.push_back(hpx::async<fileio_init_read_action>(hpx_localities()[il]));
 	}
 	if (ir < hpx_localities().size()) {
-		futs.push_back(hpx::async < fileio_init_read_action > (hpx_localities()[ir]));
+		futs.push_back(hpx::async<fileio_init_read_action>(hpx_localities()[ir]));
 	}
 
 	std::int32_t dummy;
@@ -66,10 +66,25 @@ void fileio_init_read() {
 	opts.problem_size = total_parts;
 	opts.h = SELF_PHI * opts.soft_len * std::pow(opts.problem_size, -1.0 / 3.0);
 	opts.particle_mass = header.mass[1];
+
+	const auto Gcgs = 6.672e-8;
+	const auto Hcgs = 3.2407789e-18;
+	const auto mtot = opts.particle_mass * opts.problem_size;
+	opts.code_to_cm = std::pow((8.0 * M_PI * Gcgs * mtot * opts.code_to_g) / (3.0 * opts.omega_m * Hcgs * Hcgs), 1.0 / 3.0);
+	opts.code_to_s = opts.code_to_cm / 3e10;
+	opts.H0 = Hcgs * opts.code_to_s;
+	opts.G = Gcgs / pow(opts.code_to_cm, 3) * opts.code_to_g * pow(opts.code_to_s, 2);
+
 	if (locality == 0) {
 		printf("Reading %li particles\n", total_parts);
+		printf("code_to_cm =    %e\n", opts.code_to_cm);
+		printf("code_to_g  =    %e\n", opts.code_to_g);
+		printf("code_to_s  =    %e\n", opts.code_to_s);
+		printf("G          =    %e\n", opts.G);
+		printf("H0         =    %e\n", opts.H0);
 		printf("Z =             %e\n", header.redshift);
 		printf("particle mass = %e\n", header.mass[1]);
+		printf("mtot =          %e\n", mtot);
 		printf("hsoft =         %e\n", opts.h);
 		printf("Omega_m =       %e\n", header.Omega0);
 		printf("Omega_lambda =  %e\n", header.OmegaLambda);
@@ -93,13 +108,13 @@ void fileio_init_read() {
 			printf("Particle z out of range %e!\n", z);
 			abort();
 		}
-		if( x == 1.0 ) {
+		if (x == 1.0) {
 			x = 0.0;
 		}
-		if( y == 1.0 ) {
+		if (y == 1.0) {
 			y = 0.0;
 		}
-		if( z == 1.0 ) {
+		if (z == 1.0) {
 			z = 0.0;
 		}
 		particle part;
@@ -134,12 +149,12 @@ std::uint64_t fileio_insert_parts(std::uint64_t chunk_size) {
 	const int ir = ((locality + 1) << 1);
 	std::vector < hpx::future < std::uint64_t >> futs;
 	if (il < hpx_localities().size()) {
-		futs.push_back(hpx::async < fileio_insert_parts_action > (hpx_localities()[il], chunk_size));
+		futs.push_back(hpx::async<fileio_insert_parts_action>(hpx_localities()[il], chunk_size));
 	} else {
 		futs.push_back(hpx::make_ready_future(std::uint64_t(0)));
 	}
 	if (ir < hpx_localities().size()) {
-		futs.push_back(hpx::async < fileio_insert_parts_action > (hpx_localities()[ir], chunk_size));
+		futs.push_back(hpx::async<fileio_insert_parts_action>(hpx_localities()[ir], chunk_size));
 	} else {
 		futs.push_back(hpx::make_ready_future(std::uint64_t(0)));
 	}

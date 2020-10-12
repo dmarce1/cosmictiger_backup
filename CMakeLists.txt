@@ -30,6 +30,7 @@ set(CMAKE_CXX_FLAGS "-Wno-pointer-arith -isystem /home/dmarce1/local/boost/inclu
 set(cosmictiger_source_files
 	src/bucket.cpp
 	src/check.cpp
+	src/cosmos.cpp
 	src/error.cpp
 	src/fileio.cpp
 	src/gravity.cpp
@@ -51,6 +52,7 @@ set(cosmictiger_source_files
 set(cosmictiger_header_files
 	cosmictiger/bucket.hpp	 
 	cosmictiger/check.hpp	 
+	cosmictiger/cosmos.hpp	 
 	cosmictiger/cuda_check.hpp  
 	cosmictiger/cuda_export.hpp  
 	cosmictiger/defs.hpp	 

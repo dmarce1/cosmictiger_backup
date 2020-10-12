@@ -25,7 +25,7 @@ bool options::process_options(int argc, char *argv[]) {
 	("config_file", po::value < std::string > (&config_file)->default_value(""), "configuration file") //
 	("ewald", po::value < bool > (&ewald)->default_value(true), "use ewald correction") //
 	("test", po::value < bool > (&test)->default_value(false), "test solver") //
-	("code_to_cm", po::value<double>(&code_to_cm)->default_value(1.0), "code units to centimers conversion factor") //
+	("omega_m", po::value<double>(&omega_m)->default_value(0.3), "mass density paramter") //
 	("sink_bias", po::value<double>(&sink_bias)->default_value(1.5), "sink radius multiplier") //
 	("eta", po::value<double>(&eta)->default_value(0.2), "accuracy parameter") //
 	("out_pct", po::value<double>(&out_pct)->default_value(0.0), "percentage of particles to output") //
@@ -33,7 +33,8 @@ bool options::process_options(int argc, char *argv[]) {
 	("soft_len", po::value<double>(&soft_len)->default_value(0.02), "Plummer softening length in units of mean particle separation") //
 	("input_file", po::value < std::string > (&input_file)->default_value(""), "base name for input files from N-GenIC") //
 	("bucket_size", po::value<int>(&bucket_size)->default_value(64), "maximum number of particles on a node") //
-			;
+	("code_to_g", po::value<double>(&code_to_g)->default_value(1.99e43), "code mass units") //
+		;
 
 	boost::program_options::variables_map vm;
 	po::store(po::parse_command_line(argc, argv, command_opts), vm);
@@ -59,6 +60,7 @@ bool options::process_options(int argc, char *argv[]) {
 		out_pct = 1.0;
 	}
 	opts.t_max = 1.0;
+
 	const auto loc = hpx::find_all_localities();
 	const auto sz = loc.size();
 	std::vector<hpx::future<void>> futs;

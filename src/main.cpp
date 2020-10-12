@@ -1,6 +1,7 @@
 #include <cosmictiger/defs.hpp>
 #include <cosmictiger/hpx.hpp>
 
+#include <cosmictiger/cosmos.hpp>
 #include <cosmictiger/error.hpp>
 #include <cosmictiger/rand.hpp>
 #include <cosmictiger/time.hpp>
@@ -49,6 +50,7 @@ void solve_gravity(tree_client root) {
 
 int hpx_main(int argc, char *argv[]) {
 	opts.process_options(argc, argv);
+
 	set_params(opts.theta, 0, false);
 	range root_box;
 	for (int dim = 0; dim < NDIM; dim++) {
@@ -63,6 +65,12 @@ int hpx_main(int argc, char *argv[]) {
 	root.grow(0, false, bucket()).get();
 	hpx::async<tree::build_tree_dir_action>(root_id, root).get();
 	fileio_init_read();
+	cosmos cosmo;
+	for (double t = 0.0; t >= -200.0; t -= 1.0) {
+		cosmo.advance_to_time(t);
+		printf("%e %e %e %e\n", cosmo.t, cosmo.tau, cosmo.a, cosmo.adot);
+	}
+	return hpx::finalize();
 	std::uint64_t ndistrib;
 	std::uint64_t chunk_size = 1024 * 1024;
 	std::uint64_t ntotal;
@@ -108,33 +116,6 @@ int hpx_main(int argc, char *argv[]) {
 		} while (t < opts.t_max);
 	}
 
-	//
-//	int rc = root.verify(0, false).get();
-//	if (rc) {
-//		printf("%s\n", tree_verification_error(rc).c_str());
-//	}
-
-//
-////	double btime = 0.0;
-//	for (int step = 0; step < 10; step++) {
-//		auto dtime = timer();
-//		auto dr = root.drift(0, false, 0.009).get();
-//		printf( "D: %e\n", timer() - dtime);
-//		dtime = timer();
-////		int cnt = 0;
-//		auto cnt = root.count_children().get();
-//		printf( "C: %e\n", timer() - dtime);
-//		dtime = timer();
-//		root.compute_multipoles(0, false, -1, std::move(dr.parts), 0);
-//		printf( "M: %e\n", timer() - dtime);
-//		dtime = timer();
-////		int rc = root.verify(0, false).get();
-////		if (rc) {
-////			printf("%s\n", tree_verification_error(rc).c_str());
-////		}
-//		printf("Drift takes %e seconds %i\n", timer() - dtime, cnt);
-//	}
-////	printf("%e\n", btime);
 	printf("Destroying tree\n");
 	root.destroy(0).get();
 	printf("exiting\n");
