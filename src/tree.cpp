@@ -600,7 +600,7 @@ std::vector<int> tree::checks_far(const std::vector<check_item> &checks, bool ew
 }
 
 int tree::kick_fmm(int stack_cnt, std::vector<check_item> &&dchecks, std::vector<check_item> &&echecks, expansion_src &&L) {
-
+#define LOAD_SIZE (16 * simd_float::size())
 	std::vector<check_item> next_dchecks;
 	std::vector<check_item> next_echecks;
 	next_dchecks.reserve(dchecks.size());
@@ -623,11 +623,16 @@ int tree::kick_fmm(int stack_cnt, std::vector<check_item> &&dchecks, std::vector
 					CP_list.push_back(pos);
 				} else {
 					CC_list.push_back(mpole);
+					if (CC_list.size() == LOAD_SIZE) {
+						gravity_CC_direct(L.l, tptr->multi.x, CC_list, fmm.stats);
+						CC_list.resize(0);
+					}
 				}
 			} else {
 				next_dchecks.push_back(dchecks[i]);
 			}
 		}
+		gravity_CC_direct(L.l, tptr->multi.x, CC_list, fmm.stats);
 		if (opts.ewald) {
 			far = checks_far(echecks, true);
 			for (int i = 0; i < echecks.size(); i++) {
@@ -638,8 +643,14 @@ int tree::kick_fmm(int stack_cnt, std::vector<check_item> &&dchecks, std::vector
 					ewald_list.push_back(mpole);
 				} else {
 					next_echecks.push_back(echecks[i]);
+					if (next_echecks.size() == LOAD_SIZE) {
+						gravity_CC_ewald(L.l, tptr->multi.x, ewald_list, fmm.stats);
+						next_echecks.resize(0);
+					}
+
 				}
 			}
+			gravity_CC_ewald(L.l, tptr->multi.x, ewald_list, fmm.stats);
 		}
 
 		hpx::future<std::vector<check_item>> echecks_fut, dchecks_fut;
@@ -652,16 +663,15 @@ int tree::kick_fmm(int stack_cnt, std::vector<check_item> &&dchecks, std::vector
 		cp.resize(0);
 		for (int i = 0; i < cp_ptrs.size(); i++) {
 			const auto &this_x = *cp_ptrs[i];
-			auto old_sz = cp.size();
-			cp.resize(cp.size() + this_x.size());
-			std::memcpy(cp.data() + old_sz, this_x.data(), sizeof(vect<position> ) * this_x.size());
+			for (int j = 0; j < this_x.size(); j++) {
+				cp.push_back(this_x[j]);
+				if (cp.size() == LOAD_SIZE) {
+					gravity_CP_direct(L.l, tptr->multi.x, cp, fmm.stats);
+					cp.resize(0);
+				}
+			}
 		}
-
-		gravity_CC_direct(L.l, tptr->multi.x, CC_list, fmm.stats);
 		gravity_CP_direct(L.l, tptr->multi.x, cp, fmm.stats);
-		if (opts.ewald) {
-			gravity_CC_ewald(L.l, tptr->multi.x, ewald_list, fmm.stats);
-		}
 
 		dchecks = dchecks_fut.get();
 		if (opts.ewald) {
