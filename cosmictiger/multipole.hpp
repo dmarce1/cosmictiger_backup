@@ -27,7 +27,7 @@ constexpr int MP = 17;
 template<class T>
 class multipole {
 private:
-	T data[MP+1];
+	T data[MP];
 public:
 	CUDA_EXPORT multipole();
 	CUDA_EXPORT T operator ()() const;
@@ -49,8 +49,8 @@ public:
 	}
 
 	template<class A>
-	void serialize( A&& arc, unsigned ) {
-		for( int i = 0; i < MP; i++) {
+	void serialize(A &&arc, unsigned) {
+		for (int i = 0; i < MP; i++) {
 			arc & data[i];
 		}
 	}
@@ -150,18 +150,19 @@ CUDA_EXPORT inline multipole<T>& multipole<T>::operator>>=(const vect<T> &Y) {
 	return me;
 }
 
-
 struct multi_src {
 	multipole<float> m;
 	float r;
 	vect<position> x;
+	void operator=(const multi_src &other) {
+		std::memcpy(this, &other, sizeof(m) + sizeof(r) + sizeof(x));
+	}
 	template<class A>
-	void serialize( A&& arc, unsigned ) {
+	void serialize(A &&arc, unsigned) {
 		arc & m;
 		arc & r;
 		arc & x;
 	}
 };
-
 
 #endif /* multipole_H_ */

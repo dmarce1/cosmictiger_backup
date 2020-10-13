@@ -9,6 +9,7 @@
 #include <cosmictiger/tree.hpp>
 #include <cosmictiger/fileio.hpp>
 #include <cosmictiger/output.hpp>
+#include <cosmictiger/memcpy.hpp>
 
 #include <ctime>
 
@@ -95,31 +96,64 @@ int hpx_main(int argc, char *argv[]) {
 		cosmos cosmo;
 		cosmo.advance_to_scalefactor(1.0 / (opts.z0 + 1.0));
 		int oi = 0;
-		printf("Output every %e\n", opts.t_max / 64);
+		printf("Output every %e\n", opts.t_max / nout);
+		double epec = 0.0;
+		double ekin0, ekin1, epot, a0, a1, etot;
+		a1 = a0 = cosmo.a;
+		double etot0;
+		double theta;
 		do {
-			bool output = t * 64.0 / opts.t_max >= oi;
-			set_params(opts.theta, min_rung(itime), output, cosmo.a);
+			bool output = t * nout / opts.t_max >= oi;
+			double z = 1.0 / cosmo.a - 1.0;
+			if (z > 20.0) {
+				theta = 0.4;
+			} else if (z < 2.0) {
+				theta = 0.7;
+			} else {
+				theta = 0.55;
+			}
+			set_params(theta, min_rung(itime), output, cosmo.a);
 			solve_gravity(root);
 			if (output) {
-		//		printf( "Output with error\n");
 				auto output = gather_output();
-		//		compute_error(output);
-				output_to_file((std::string("parts.") + std::to_string(oi) + ".silo"), output);
+				if (output.size()) {
+					output_to_file((std::string("parts.") + std::to_string(oi) + ".silo"), output);
+				}
 				oi++;
 			}
+			ekin0 = ekin1;
 			auto krc = tree_kick_return();
 			double dt = rung_to_dt(krc.rung);
-			double a0 = cosmo.a;
+			a0 = a1;
+			double adot = cosmo.adot;
 			cosmo.advance_to_time(t - opts.t_max + dt);
-			double a1 = cosmo.a;
+			a1 = cosmo.a;
 			double abar = std::sqrt(1.0 / (0.5 / (a0 * a0) + 0.5 / (a1 * a1)));
 			double drift_time = timer();
-			root.drift(0, false, dt, abar).get();
+			const auto drc = root.drift(0, false, dt, abar).get();
+			ekin1 = drc.ekin;
 			root.count_children().get();
 			drift_time = timer() - drift_time;
+			epot = krc.epot;
+			if (i > 0) {
+				epec += 0.5 * (ekin0 + ekin1) * (a1 - a0);
+			} else {
+				etot0 = a0 * (ekin1 + epot);
+			}
+			etot = a0 * (ekin1 + epot) + epec;
+			double epct = (etot - etot0) / (a0 * ekin1);
+			if (i % 25 == 0) {
+				printf("%4s %11s %11s %11s %11s %4s %4s %11s %11s %11s %11s %11s %11s\n", "step", "theta","time", "dt", "mrg", "rng", "scale", "adot", "ekin", "epec",
+						"epot", "etot", "epct");
+			}
+			printf("%4i %11.4e %11.4e %11.4e %4i %4i %11.4e %11.4e %11.4e %11.4e ", i, theta, t, dt, krc.rung, min_rung(itime), a0, adot, a0 * ekin1, epec);
+			if (epot != 0.0) {
+				printf(" %11.4e %11.4e %11.4e\n", a0 * epot, etot, epct);
+			} else {
+				printf("\n");
+			}
 			itime = inc(itime, krc.rung);
 			t = time_to_double(itime);
-			printf("%i %e %e %e %i %i %e %e %e\n", i, t, dt, cosmo.a, krc.rung, min_rung(itime), multipole_time, fmm_time, drift_time);
 			multipole_time = fmm_time = 0.0;
 			i++;
 		} while (t < opts.t_max);

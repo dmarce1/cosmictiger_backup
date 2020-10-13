@@ -31,7 +31,7 @@ constexpr int LP = 35;
 template<class T>
 class expansion {
 
-	T data[LP+1];
+	T data[LP];
 public:
 	expansion<T>& operator*=(T r) {
 		for (int i = 0; i != LP; ++i) {

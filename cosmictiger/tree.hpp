@@ -77,22 +77,27 @@ struct drift_return {
 	bucket parts;
 	std::uint64_t cnt;
 	std::uint64_t ndrift;
+	double ekin;
 	template<class A>
 	void serialize(A&& arc, unsigned) {
 		arc & parts;
 		arc & cnt;
 		arc & ndrift;
+		arc & ekin;
 	}
 };
 
 struct kick_return {
 	int rung;
+	double epot;
 	kick_return() {
 		rung = 0;
+		epot = 0.0;
 	}
 	template<class A>
 	void serialize(A&& arc, unsigned) {
 		arc & rung;
+		arc & epot;
 	}
 };
 

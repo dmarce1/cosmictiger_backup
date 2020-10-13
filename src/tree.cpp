@@ -87,7 +87,7 @@ int tree_ewald_min_level(double theta, double h) {
 			} else {
 				a = std::sqrt(1.5);
 			}
-			double r = 2 * a / theta + h * N;
+			double r = (1.0 + opts.sink_bias) * a / theta + h * N;
 			if (dx > r) {
 				break;
 			}
@@ -126,6 +126,7 @@ kick_return tree_kick_return() {
 	for (int i = 0; i < futs.size(); i++) {
 		auto tmp = futs[i].get();
 		krc.rung = std::max(krc.rung, tmp.rung);
+		krc.epot += tmp.epot;
 	}
 	kick_return rc = krc;
 	krc = kick_return();
@@ -651,7 +652,9 @@ int tree::kick_fmm(int stack_cnt, std::vector<check_item> &&dchecks, std::vector
 		cp.resize(0);
 		for (int i = 0; i < cp_ptrs.size(); i++) {
 			const auto &this_x = *cp_ptrs[i];
-			cp.insert(cp.end(), this_x.begin(), this_x.end());
+			auto old_sz = cp.size();
+			cp.resize(cp.size() + this_x.size());
+			std::memcpy(cp.data() + old_sz, this_x.data(), sizeof(vect<position> ) * this_x.size());
 		}
 
 		gravity_CC_direct(L.l, tptr->multi.x, CC_list, fmm.stats);
@@ -708,12 +711,15 @@ int tree::kick_fmm(int stack_cnt, std::vector<check_item> &&dchecks, std::vector
 				int max_rung = 0;
 				const auto ainv = 1.0 / fmm.a;
 				const auto a3inv = ainv * ainv * ainv;
+				const auto m = opts.particle_mass;
+				double epot = 0.0;
 				for (auto i = tptr->parts.begin(); i != tptr->parts.end(); i++) {
 					if (fmm.stats || i->rung >= fmm.min_rung) {
 						if (fmm.stats) {
 							if (i->out) {
 								output_add_particle(*i, (*f)[j]);
 							}
+							epot += 0.5 * m * (*f)[j].phi * ainv;
 						}
 						double this_dt;
 						if (i->rung >= fmm.min_rung) {
@@ -733,6 +739,9 @@ int tree::kick_fmm(int stack_cnt, std::vector<check_item> &&dchecks, std::vector
 				}
 				std::lock_guard<mutex_type> lock(krc_mtx);
 				krc.rung = std::max(krc.rung, max_rung);
+				if (fmm.stats) {
+					krc.epot += epot;
+				}
 			}, fmm.stats);
 
 		} else {
@@ -856,6 +865,8 @@ drift_return tree::drift(int stack_cnt, double dt, double abar) {
 	drift_return rc;
 	bucket &exit_parts = rc.parts;
 
+	rc.ekin = 0.0;
+	const auto m = opts.particle_mass;
 	if (tptr->leaf) {
 		std::lock_guard<mutex_type> lock(tptr->mtx);
 		auto i = tptr->parts.begin();
@@ -864,6 +875,7 @@ drift_return tree::drift(int stack_cnt, double dt, double abar) {
 			const auto v = i->v;
 			x += v * dt / (abar * abar);
 			i->x = double_to_pos(x);
+			rc.ekin += 0.5 * m * (v.dot(v) / (abar * abar));
 			if (!in_range(pos_to_double(i->x), tptr->box)) {
 				exit_parts.insert(*i);
 				i = tptr->parts.remove(i);
@@ -871,8 +883,11 @@ drift_return tree::drift(int stack_cnt, double dt, double abar) {
 				i++;
 			}
 		}
-	}
-	if (!tptr->leaf) {
+		rc.ndrift = exit_parts.size();
+		rc.cnt = tptr->parts.size();
+		tptr->child_cnt[0] = 0;
+		tptr->child_cnt[1] = 0;
+	} else {
 		auto futl = tptr->children[0].drift(stack_cnt, true, dt, abar);
 		auto futr = tptr->children[1].drift(stack_cnt, false, dt, abar);
 		std::array<drift_return, NCHILD> crc;
@@ -893,13 +908,9 @@ drift_return tree::drift(int stack_cnt, double dt, double abar) {
 		}
 		rc.ndrift = exit_parts.size() + crc[0].ndrift + crc[1].ndrift;
 		rc.cnt = tptr->parts.size() + crc[0].cnt + crc[1].cnt;
+		rc.ekin = crc[0].ekin + crc[1].ekin;
 		tptr->child_cnt[0] = crc[0].cnt;
 		tptr->child_cnt[1] = crc[1].cnt;
-	} else {
-		rc.ndrift = exit_parts.size();
-		rc.cnt = tptr->parts.size();
-		tptr->child_cnt[0] = 0;
-		tptr->child_cnt[1] = 0;
 	}
 	if (tptr->level == dist_level) {
 		directory->find_home(std::move(exit_parts)).get();

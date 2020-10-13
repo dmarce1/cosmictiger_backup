@@ -126,7 +126,8 @@ void fileio_init_read() {
 		part.x[1] = y;
 		part.x[2] = z;
 		part.rung = 0;
-		part.out = rand1() < opts.out_pct;
+		part.out = 0;
+//		part.out = rand1() < opts.out_pct;
 		part.group = 0;
 		parts.insert(part);
 	}
